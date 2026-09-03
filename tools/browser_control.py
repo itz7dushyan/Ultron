@@ -1,6 +1,7 @@
 import asyncio
 import webbrowser
 import logging
+from pathlib import Path
 from typing import Dict, Any, Optional
 from shared_state.state_manager import state_manager
 
@@ -20,13 +21,36 @@ class BrowserTools:
             return f"https://{url}"
         return url
 
-    def open_url_quick(self, url: str) -> Dict[str, Any]:
-        """Directly launches URL in user's default OS browser (instant zero-dependency)."""
+    def _get_chrome_exe(self) -> Optional[Path]:
+        import os
+        candidates = [
+            Path(os.environ.get("PROGRAMFILES", "C:\\Program Files")) / "Google" / "Chrome" / "Application" / "chrome.exe",
+            Path(os.environ.get("PROGRAMFILES(X86)", "C:\\Program Files (x86)")) / "Google" / "Chrome" / "Application" / "chrome.exe",
+            Path(os.environ.get("LOCALAPPDATA", "")) / "Google" / "Chrome" / "Application" / "chrome.exe",
+        ]
+        for p in candidates:
+            if p.exists():
+                return p
+        return None
+
+    def open_url_quick(self, url: str, profile: Optional[str] = None) -> Dict[str, Any]:
+        """Directly launches URL in personal Chrome profile or default browser."""
         clean_url = self._ensure_url(url)
+        chrome_exe = self._get_chrome_exe()
+        
+        from shared_state.database import get_memory
+        target_profile = profile or get_memory("personal_chrome_profile") or "Default"
+
         try:
-            webbrowser.open(clean_url)
-            state_manager.record_action("BrowserTools", "OPEN_URL", clean_url, status="success")
-            return {"success": True, "url": clean_url, "message": f"Opened {clean_url} in browser"}
+            if chrome_exe and chrome_exe.exists():
+                import subprocess
+                subprocess.Popen([str(chrome_exe), f"--profile-directory={target_profile}", clean_url], shell=False)
+                state_manager.record_action("BrowserTools", "OPEN_URL", clean_url, details={"profile": target_profile}, status="success")
+                return {"success": True, "url": clean_url, "profile": target_profile, "message": f"Opened {clean_url} in Chrome ({target_profile})"}
+            else:
+                webbrowser.open(clean_url)
+                state_manager.record_action("BrowserTools", "OPEN_URL", clean_url, status="success")
+                return {"success": True, "url": clean_url, "message": f"Opened {clean_url} in browser"}
         except Exception as e:
             state_manager.record_action("BrowserTools", "OPEN_URL", clean_url, details=str(e), status="failed")
             return {"success": False, "error": str(e)}

@@ -71,6 +71,9 @@ class ThinkerAgent(BaseAgent):
             )
             return reflex_plan
 
+        from tools.memory_bank import memory_bank
+        context["persistent_memory"] = memory_bank.list_all()
+
         user_content = (
             f"User Instruction: {user_prompt}\n"
             f"Current Context: {json.dumps(context, default=str)}\n"
@@ -92,12 +95,74 @@ class ThinkerAgent(BaseAgent):
 
     def _fast_reflex_plan(self, user_prompt: str) -> Optional[Dict[str, Any]]:
         """
-        Ultra-fast local intent classifier (<5ms). Handles standard desktop actions
-        instantly without cloud LLM round-trip latency.
+        Ultra-fast local intent classifier (<5ms). Handles standard desktop actions,
+        document generation, and memory preferences instantly.
         """
         p = user_prompt.lower().strip()
 
-        # 1. Specific Websites / Chrome / Browser
+        # 1. Document Creation & Writing Requests (Google Docs / Paragraphs)
+        if any(w in p for w in ("document", "doc", "docs", "paragraph", "essay")) and any(w in p for w in ("open", "create", "make", "write")):
+            topic = user_prompt
+            for prefix in (
+                "open a google document and write a paragraph on the topic",
+                "open a google document and write a paragraph on",
+                "make a google document on the topic",
+                "make a google document on",
+                "create a google document on the topic",
+                "create a google document on",
+                "write a paragraph on the topic",
+                "write a paragraph on",
+                "write about",
+                "document on"
+            ):
+                if prefix in p:
+                    topic = user_prompt[p.find(prefix) + len(prefix):].strip(" :.,")
+                    break
+            if not topic or len(topic) < 2:
+                topic = "AI in 2026"
+
+            return {
+                "intent_summary": f"Create document and write paragraph on {topic}",
+                "requires_confirmation": False,
+                "steps": [
+                    {
+                        "step_id": 1,
+                        "assigned_agent": "Executor",
+                        "action": "create_document",
+                        "parameters": {"topic": topic, "app_target": "google_docs"},
+                        "description": f"Generate text and paste into Google Doc on {topic}"
+                    }
+                ],
+                "spoken_response": f"Opening Google Docs in your personal profile and writing the paragraph on {topic} now."
+            }
+
+        # 2. Chrome Profile & Long-Term Memory Setting
+        if "personal profile" in p or "chrome profile" in p:
+            profile = "Default"
+            for candidate in ("profile 1", "profile 10", "profile 12", "profile 13", "profile 4", "profile 5", "default"):
+                if candidate in p:
+                    profile = candidate.title()
+                    break
+            return {
+                "intent_summary": "Update personal Chrome profile preference",
+                "requires_confirmation": False,
+                "steps": [
+                    {
+                        "step_id": 1,
+                        "assigned_agent": "Executor",
+                        "action": "set_chrome_profile",
+                        "parameters": {"profile": profile},
+                        "description": f"Save personal Chrome profile preference: {profile}"
+                    }
+                ],
+                "spoken_response": f"I have committed {profile} to memory as your personal Chrome profile."
+            }
+
+        # Guard: Do not intercept complex multi-part sentences in simple site launcher
+        if any(w in p for w in ("and write", "and then", "search for", "write")):
+            return None
+
+        # 3. Specific Websites / Chrome / Browser
         if any(w in p for w in ("youtube", "google", "chatgpt", "github", "reddit", "twitter", "facebook", "instagram")):
             url = "https://www.google.com"
             site_name = "Google"
@@ -129,7 +194,7 @@ class ThinkerAgent(BaseAgent):
                 "spoken_response": f"Opening {site_name} now."
             }
 
-        # 2. General Chrome / Browser launch
+        # 4. General Chrome / Browser launch
         if "chrome" in p or "browser" in p:
             return {
                 "intent_summary": "Launch web browser",

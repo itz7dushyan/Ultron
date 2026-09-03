@@ -10,6 +10,8 @@ from tools.api_gateway import api_gateway
 from tools.safety_sentinel import safety_sentinel
 from tools.system_telemetry import system_telemetry
 from tools.vision_control import vision_control
+from tools.memory_bank import memory_bank
+from tools.doc_writer import doc_writer
 
 class ExecutorAgent(BaseAgent):
     """
@@ -113,6 +115,22 @@ class ExecutorAgent(BaseAgent):
             elif action_clean in ("analyze_screen", "screen_vision", "inspect_screen", "screenshot"):
                 question = parameters.get("question") or parameters.get("target") or "What is on my screen?"
                 return vision_control.analyze_screen(question)
+
+            elif action_clean in ("create_document", "write_document", "google_doc", "doc_write"):
+                topic = parameters.get("topic") or parameters.get("title") or "Document"
+                target = parameters.get("app_target") or parameters.get("target") or "google_docs"
+                content = parameters.get("content") or parameters.get("text")
+                return doc_writer.create_and_write(topic=topic, app_target=target, custom_text=content)
+
+            elif action_clean in ("remember", "save_memory", "set_preference"):
+                key = parameters.get("key", "preference")
+                val = parameters.get("value", "")
+                cat = parameters.get("category", "user_preference")
+                return memory_bank.remember(key, val, category=cat)
+
+            elif action_clean in ("set_chrome_profile", "set_personal_profile"):
+                profile_arg = parameters.get("profile") or parameters.get("name") or "Default"
+                return memory_bank.set_personal_chrome_profile(profile_arg)
 
             elif action_clean == "echo":
                 return {"success": True, "message": parameters.get("message", "")}

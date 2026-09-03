@@ -1,6 +1,6 @@
 def main():
+    """Prints a friendly greeting to the console."""
     print("Hello, World!")
-    print("Welcome to TestProject!")
 
 if __name__ == "__main__":
     main()

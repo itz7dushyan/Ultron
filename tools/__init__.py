@@ -7,6 +7,8 @@ from tools.vpn_control import vpn_tools
 from tools.api_gateway import api_gateway
 from tools.system_telemetry import system_telemetry
 from tools.vision_control import vision_control
+from tools.memory_bank import memory_bank
+from tools.doc_writer import doc_writer
 
 __all__ = [
     "safety_sentinel",
@@ -18,5 +20,7 @@ __all__ = [
     "vpn_tools",
     "api_gateway",
     "system_telemetry",
-    "vision_control"
+    "vision_control",
+    "memory_bank",
+    "doc_writer"
 ]
