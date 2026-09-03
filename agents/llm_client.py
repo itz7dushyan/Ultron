@@ -144,37 +144,41 @@ class UnifiedLLMClient:
             if json_mode:
                 generation_config["response_mime_type"] = "application/json"
 
-            # Try primary key
-            try:
-                model = self._active_client.GenerativeModel(
-                    model_name=config.GEMINI_MODEL,
-                    system_instruction=system_prompt,
-                    generation_config=generation_config
-                )
-                resp = model.generate_content(user_prompt)
-                return resp.text
-            except Exception as e1:
-                logger.warning(f"Primary Gemini key call error: {e1}")
-                # Try fallback key if available
-                if self._is_valid_key(config.GEMINI_FALLBACK_API_KEY):
+            keys_to_try = [config.GEMINI_API_KEY]
+            if self._is_valid_key(config.GEMINI_FALLBACK_API_KEY) and config.GEMINI_FALLBACK_API_KEY not in keys_to_try:
+                keys_to_try.append(config.GEMINI_FALLBACK_API_KEY)
+
+            models_to_try = [config.GEMINI_MODEL]
+            for candidate in ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-flash-latest", "gemini-3.1-flash-lite"]:
+                if candidate not in models_to_try:
+                    models_to_try.append(candidate)
+
+            import google.generativeai as genai
+
+            for k in keys_to_try:
+                genai.configure(api_key=k)
+                for m_name in models_to_try:
                     try:
-                        logger.info("Retrying with Gemini fallback API key...")
-                        import google.generativeai as genai
-                        genai.configure(api_key=config.GEMINI_FALLBACK_API_KEY)
-                        fb_model = genai.GenerativeModel(
-                            model_name=config.GEMINI_MODEL,
+                        m_instance = genai.GenerativeModel(
+                            model_name=m_name,
                             system_instruction=system_prompt,
                             generation_config=generation_config
                         )
-                        resp = fb_model.generate_content(user_prompt)
-                        # Revert active client configuration back
-                        genai.configure(api_key=config.GEMINI_API_KEY)
+                        resp = m_instance.generate_content(user_prompt)
                         return resp.text
-                    except Exception as e2:
-                        logger.error(f"Fallback Gemini key call error: {e2}")
+                    except Exception as err:
+                        err_str = str(err)
+                        if "429" in err_str or "quota" in err_str.lower():
+                            logger.warning(f"Model {m_name} quota exceeded. Cascading to next available model...")
+                            continue
+                        elif "404" in err_str or "not found" in err_str.lower():
+                            continue
+                        else:
+                            logger.warning(f"Gemini call error on {m_name}: {err_str[:120]}")
+                            continue
 
-                logger.error(f"Gemini API call error: {e1}. Falling back to offline response.")
-                return self._offline_fallback_response(system_prompt, user_prompt, json_mode)
+            logger.error("All Gemini API keys and cascade models exhausted. Falling back to offline response.")
+            return self._offline_fallback_response(system_prompt, user_prompt, json_mode)
 
         # Offline Mock Fallback for local testing when no keys are configured yet
         return self._offline_fallback_response(system_prompt, user_prompt, json_mode)
