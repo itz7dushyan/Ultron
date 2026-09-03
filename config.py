@@ -36,7 +36,7 @@ class UltronConfig:
     GEMINI_FALLBACK_API_KEY: Optional[str] = os.getenv("GEMINI_FALLBACK_API_KEY")
     
     # Models
-    GROQ_MODEL: str = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+    GROQ_MODEL: str = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
     OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4o")
     ANTHROPIC_MODEL: str = os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022")
     GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")

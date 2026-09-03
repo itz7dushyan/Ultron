@@ -137,7 +137,24 @@ def main():
 
     safety_sentinel.set_confirmation_hook(voice_confirm)
 
-    is_hands_free = "--voice" in sys.argv
+    # Start Cybernetic Web HUD Portal server concurrently in background
+    def run_portal():
+        try:
+            from http.server import HTTPServer
+            from portal_server import UltronPortalHandler
+            server = HTTPServer(("0.0.0.0", 8080), UltronPortalHandler)
+            server.serve_forever()
+        except Exception:
+            pass
+
+    threading.Thread(target=run_portal, daemon=True).start()
+
+    # Automatically launch Cybernetic HUD in Chrome under personal profile
+    try:
+        from tools.browser_control import browser_tools
+        browser_tools.open_url_quick("http://localhost:8080")
+    except Exception:
+        pass
 
     # Start continuous background voice listener
     if config.VOICE_INPUT_ENABLED:

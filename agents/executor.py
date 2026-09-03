@@ -120,7 +120,8 @@ class ExecutorAgent(BaseAgent):
                 topic = parameters.get("topic") or parameters.get("title") or "Document"
                 target = parameters.get("app_target") or parameters.get("target") or "google_docs"
                 content = parameters.get("content") or parameters.get("text")
-                return doc_writer.create_and_write(topic=topic, app_target=target, custom_text=content)
+                folder = parameters.get("target_folder") or parameters.get("folder")
+                return doc_writer.create_and_write(topic=topic, app_target=target, custom_text=content, target_folder=folder)
 
             elif action_clean in ("remember", "save_memory", "set_preference"):
                 key = parameters.get("key", "preference")

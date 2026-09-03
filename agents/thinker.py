@@ -100,7 +100,7 @@ class ThinkerAgent(BaseAgent):
         """
         p = user_prompt.lower().strip()
 
-        # 1. Document Creation & Writing Requests (Google Docs / Paragraphs)
+        # 1. Document Creation & Writing Requests (Google Docs / Paragraphs / Folder Move)
         if any(w in p for w in ("document", "doc", "docs", "paragraph", "essay")) and any(w in p for w in ("open", "create", "make", "write")):
             topic = user_prompt
             for prefix in (
@@ -118,22 +118,53 @@ class ThinkerAgent(BaseAgent):
                 if prefix in p:
                     topic = user_prompt[p.find(prefix) + len(prefix):].strip(" :.,")
                     break
+            
+            # Clean topic from subsequent instructions
+            for stopper in ("then make a folder", "make a folder", "and then", "then", "and make"):
+                if stopper in topic.lower():
+                    topic = topic[:topic.lower().find(stopper)].strip(" :.,")
+
             if not topic or len(topic) < 2:
                 topic = "AI in 2026"
 
+            # Check if user also requested a target folder on the laptop
+            target_folder = None
+            if "voice model testing" in p:
+                target_folder = "Voice model testing"
+            elif "folder" in p or "directory" in p:
+                for marker in ("called", "named"):
+                    if marker in p:
+                        sub = p.split(marker, 1)[1]
+                        for stopper in ("and", "then", "download", "to", "inside", "folder"):
+                            if stopper in sub:
+                                sub = sub.split(stopper, 1)[0]
+                        clean_folder = sub.strip(" '\".,")
+                        if len(clean_folder) >= 2:
+                            target_folder = clean_folder.title()
+                            break
+
+            params = {"topic": topic, "app_target": "google_docs"}
+            if target_folder:
+                params["target_folder"] = target_folder
+                spoken_msg = f"Creating your Google Document on {topic}, establishing the '{target_folder}' folder on your laptop, and moving the document inside it now."
+                intent_msg = f"Create Google Doc on '{topic}', create '{target_folder}' folder, and save document"
+            else:
+                spoken_msg = f"Opening Google Docs in your personal profile and writing the paragraph on {topic} now."
+                intent_msg = f"Create document and write paragraph on {topic}"
+
             return {
-                "intent_summary": f"Create document and write paragraph on {topic}",
+                "intent_summary": intent_msg,
                 "requires_confirmation": False,
                 "steps": [
                     {
                         "step_id": 1,
                         "assigned_agent": "Executor",
                         "action": "create_document",
-                        "parameters": {"topic": topic, "app_target": "google_docs"},
-                        "description": f"Generate text and paste into Google Doc on {topic}"
+                        "parameters": params,
+                        "description": f"Generate document on {topic} and save to {target_folder or 'Documents'}"
                     }
                 ],
-                "spoken_response": f"Opening Google Docs in your personal profile and writing the paragraph on {topic} now."
+                "spoken_response": spoken_msg
             }
 
         # 2. Chrome Profile & Long-Term Memory Setting

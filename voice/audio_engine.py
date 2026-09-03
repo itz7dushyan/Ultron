@@ -90,6 +90,13 @@ class AudioEngine:
         except Exception:
             asyncio.run(self.speak_async(text))
 
+    def speak_in_background(self, text: str):
+        """Plays speech in a non-blocking background thread so tasks execute concurrently."""
+        import threading
+        t = threading.Thread(target=self.speak, args=(text,), daemon=True)
+        t.start()
+        return t
+
     def _play_audio_windows(self, audio_file: Path):
         """Plays audio file natively on Windows using sounddevice and soundfile."""
         try:

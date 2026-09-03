@@ -1,12 +1,11 @@
 # TestProject
 
-A simple, production-grade Python "Hello World" script.
+A simple Python hello world script.
 
-## Requirements
-- Python 3.6+
+## Usage
 
-## How to Run
-Execute the script using Python:
+Run the script using:
+
 ```bash
-python hello.py
+python main.py
 ```
