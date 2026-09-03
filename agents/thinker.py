@@ -1,5 +1,5 @@
 import json
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from agents.base_agent import BaseAgent
 
 class ThinkerAgent(BaseAgent):
@@ -61,6 +61,16 @@ class ThinkerAgent(BaseAgent):
             self.log(action="PLAN_CREATED", target=plan["intent_summary"], details={"step_count": 0, "risk": False})
             return plan
 
+        # Fast Reflex Engine: Sub-second local execution for standard desktop commands
+        reflex_plan = self._fast_reflex_plan(user_prompt)
+        if reflex_plan:
+            self.log(
+                action="PLAN_CREATED",
+                target=reflex_plan["intent_summary"],
+                details={"step_count": len(reflex_plan.get("steps", [])), "risk": False, "reflex": True}
+            )
+            return reflex_plan
+
         user_content = (
             f"User Instruction: {user_prompt}\n"
             f"Current Context: {json.dumps(context, default=str)}\n"
@@ -79,6 +89,96 @@ class ThinkerAgent(BaseAgent):
             details={"step_count": len(plan.get("steps", [])), "risk": plan.get("requires_confirmation")}
         )
         return plan
+
+    def _fast_reflex_plan(self, user_prompt: str) -> Optional[Dict[str, Any]]:
+        """
+        Ultra-fast local intent classifier (<5ms). Handles standard desktop actions
+        instantly without cloud LLM round-trip latency.
+        """
+        p = user_prompt.lower().strip()
+
+        # 1. Specific Websites / Chrome / Browser
+        if any(w in p for w in ("youtube", "google", "chatgpt", "github", "reddit", "twitter", "facebook", "instagram")):
+            url = "https://www.google.com"
+            site_name = "Google"
+            if "youtube" in p:
+                url = "https://www.youtube.com"
+                site_name = "YouTube"
+            elif "chatgpt" in p:
+                url = "https://chatgpt.com"
+                site_name = "ChatGPT"
+            elif "github" in p:
+                url = "https://github.com"
+                site_name = "GitHub"
+            elif "reddit" in p:
+                url = "https://www.reddit.com"
+                site_name = "Reddit"
+            elif "twitter" in p or " x " in f" {p} ":
+                url = "https://x.com"
+                site_name = "X"
+            elif "instagram" in p:
+                url = "https://www.instagram.com"
+                site_name = "Instagram"
+
+            return {
+                "intent_summary": f"Open {site_name} in browser",
+                "requires_confirmation": False,
+                "steps": [
+                    {"step_id": 1, "assigned_agent": "Executor", "action": "open_url", "parameters": {"url": url}, "description": f"Navigate to {site_name}"}
+                ],
+                "spoken_response": f"Opening {site_name} now."
+            }
+
+        # 2. General Chrome / Browser launch
+        if "chrome" in p or "browser" in p:
+            return {
+                "intent_summary": "Launch web browser",
+                "requires_confirmation": False,
+                "steps": [
+                    {"step_id": 1, "assigned_agent": "Executor", "action": "open_url", "parameters": {"url": "https://www.google.com"}, "description": "Open default browser"}
+                ],
+                "spoken_response": "Launching your web browser."
+            }
+
+        # 3. System Vitals & Hardware Telemetry
+        if any(k in p for k in ("battery", "system status", "hardware", "laptop doing", "system doing", "cpu", "ram", "specs")):
+            return {
+                "intent_summary": "Inspect hardware and system telemetry",
+                "requires_confirmation": False,
+                "steps": [
+                    {"step_id": 1, "assigned_agent": "Executor", "action": "system_status", "parameters": {}, "description": "Fetch live system metrics"}
+                ],
+                "spoken_response": "Accessing hardware telemetry now."
+            }
+
+        # 4. Desktop Screen Vision / Screenshot
+        if any(k in p for k in ("screenshot", "screen capture", "look at my screen", "see my screen")):
+            return {
+                "intent_summary": "Capture and analyze desktop screen",
+                "requires_confirmation": False,
+                "steps": [
+                    {"step_id": 1, "assigned_agent": "Executor", "action": "screenshot", "parameters": {}, "description": "Capture screen"}
+                ],
+                "spoken_response": "Capturing visual telemetry from your desktop."
+            }
+
+        # 5. Standard Applications
+        if "notepad" in p:
+            return {
+                "intent_summary": "Open Notepad",
+                "requires_confirmation": False,
+                "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "open_app", "parameters": {"app_name": "notepad"}, "description": "Open Notepad"}],
+                "spoken_response": "Opening Notepad."
+            }
+        if "calculator" in p:
+            return {
+                "intent_summary": "Open Calculator",
+                "requires_confirmation": False,
+                "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "open_app", "parameters": {"app_name": "calc"}, "description": "Open Calculator"}],
+                "spoken_response": "Opening Calculator."
+            }
+
+        return None
 
     def _fallback_plan(self, user_prompt: str) -> Dict[str, Any]:
         """Provides dynamic fallback plan when LLM is in offline mode."""

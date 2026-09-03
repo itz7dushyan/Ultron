@@ -148,28 +148,39 @@ class UnifiedLLMClient:
             if self._is_valid_key(config.GEMINI_FALLBACK_API_KEY) and config.GEMINI_FALLBACK_API_KEY not in keys_to_try:
                 keys_to_try.append(config.GEMINI_FALLBACK_API_KEY)
 
+            # Fast models prioritized for ultra-low latency
+            candidate_models = ["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"]
             models_to_try = [config.GEMINI_MODEL]
-            for candidate in ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-flash-latest", "gemini-3.1-flash-lite"]:
-                if candidate not in models_to_try:
-                    models_to_try.append(candidate)
+            for c in candidate_models:
+                if c not in models_to_try:
+                    models_to_try.append(c)
+
+            if not hasattr(self, "_exhausted_models"):
+                self._exhausted_models = set()
+
+            active_models = [m for m in models_to_try if m not in self._exhausted_models]
+            if not active_models:
+                self._exhausted_models.clear()
+                active_models = models_to_try
 
             import google.generativeai as genai
 
             for k in keys_to_try:
                 genai.configure(api_key=k)
-                for m_name in models_to_try:
+                for m_name in active_models:
                     try:
                         m_instance = genai.GenerativeModel(
                             model_name=m_name,
                             system_instruction=system_prompt,
                             generation_config=generation_config
                         )
-                        resp = m_instance.generate_content(user_prompt)
+                        resp = m_instance.generate_content(user_prompt, request_options={"timeout": 8})
                         return resp.text
                     except Exception as err:
                         err_str = str(err)
                         if "429" in err_str or "quota" in err_str.lower():
-                            logger.warning(f"Model {m_name} quota exceeded. Cascading to next available model...")
+                            self._exhausted_models.add(m_name)
+                            logger.warning(f"Model {m_name} quota reached. Auto-bypassing.")
                             continue
                         elif "404" in err_str or "not found" in err_str.lower():
                             continue

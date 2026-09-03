@@ -87,8 +87,9 @@ class WakeDetector:
                 self._recognizer.energy_threshold = 80
 
             self._recognizer.dynamic_energy_threshold = True
-            self._recognizer.pause_threshold = 0.6
-            logger.info(f"Ultron Microphone calibrated (threshold={self._recognizer.energy_threshold:.1f})")
+            self._recognizer.pause_threshold = 1.3
+            self._recognizer.non_speaking_duration = 0.5
+            logger.info(f"Ultron Microphone calibrated (threshold={self._recognizer.energy_threshold:.1f}, pause_threshold=1.3s)")
         except Exception as e:
             logger.warning(f"Voice input initialization notice: {e}")
 
@@ -181,7 +182,7 @@ class WakeDetector:
                     # STATE A: STANDBY (Waiting for Wake Phrase)
                     # ==========================================
                     if not self.is_session_active:
-                        phrase = self.listen_single_phrase(timeout=3, phrase_time_limit=5)
+                        phrase = self.listen_single_phrase(timeout=4, phrase_time_limit=18)
                         if phrase:
                             is_wake, attached_cmd = self.is_wake_phrase(phrase)
                             if is_wake:
@@ -206,7 +207,7 @@ class WakeDetector:
                             status_logger("● [ON CALL] Listening for your command... (Say 'That's enough' to hang up)")
 
                         self._play_listen_chirp()
-                        phrase = self.listen_single_phrase(timeout=8, phrase_time_limit=10)
+                        phrase = self.listen_single_phrase(timeout=9, phrase_time_limit=22)
 
                         if phrase:
                             self.silence_turns = 0

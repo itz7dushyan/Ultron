@@ -1,19 +1,11 @@
 # TestProject
 
-A simple, robust Python Hello World project.
+A simple Python hello world script.
 
-## Structure
-- `main.py`: Contains the core greeting function and main execution script.
-- `test_main.py`: Unit tests for the application.
+## How to Run
 
-## Usage
-Run the main script:
+Ensure you have Python installed, then run the script using your terminal:
+
 ```bash
-python main.py
-```
-
-## Running Tests
-Run the unit tests:
-```bash
-python -m unittest test_main.py
+python hello.py
 ```
