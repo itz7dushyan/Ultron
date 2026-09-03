@@ -1,0 +1,36 @@
+# ==========================================
+# ULTRON SECRETS & RUNTIME IGNORE
+# ==========================================
+
+# CRITICAL: Never commit active API keys or private tokens
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+*.egg-info/
+
+# Virtual Environments
+venv/
+.venv/
+env/
+
+# Runtime data, generated audio cache & local SQLite DBs
+data/
+logs/
+*.mp3
+*.wav
+
+# IDE settings
+.vscode/
+.idea/
+*.swp
+*.swo

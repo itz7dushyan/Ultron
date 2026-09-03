@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ULTRON // Autonomous AI System Control HUD</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="ultron-hud">
+  <!-- Dynamic Background Particles & Grid Overlay -->
+  <div class="hud-grid-overlay"></div>
+  <div class="hud-scanline"></div>
+
+  <!-- Top Navigation Bar -->
+  <header class="hud-header">
+    <div class="brand-container">
+      <div class="brand-reactor-mini">
+        <div class="mini-core"></div>
+      </div>
+      <div class="brand-text">
+        <h1 class="brand-title">ULTRON <span class="version-tag">v2.0</span></h1>
+        <span class="brand-subtitle">AUTONOMOUS MULTI-AGENT DESKTOP MATRIX</span>
+      </div>
+    </div>
+
+    <div class="system-pills">
+      <div class="status-pill status-online">
+        <span class="pulse-dot"></span>
+        <span>GEMINI 3.7 FLASH // LIVE</span>
+      </div>
+      <div class="status-pill" id="pill-os">
+        <span>WINDOWS 11 // LOCAL</span>
+      </div>
+      <div class="status-pill status-guard" id="pill-guard">
+        <span>SENTINEL // ACTIVE</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Grid Layout -->
+  <main class="hud-main-grid">
+    <!-- Left Column: System Vitals & Agent Matrix -->
+    <section class="hud-panel left-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">SYSTEM TELEMETRY</h2>
+        <span class="panel-badge">LIVE METRICS</span>
+      </div>
+
+      <!-- Vitals Dials -->
+      <div class="vitals-grid">
+        <div class="vital-card">
+          <div class="vital-label">CPU LOAD</div>
+          <div class="vital-circle" style="--val: 24%">
+            <span class="vital-value" id="val-cpu">24%</span>
+          </div>
+          <div class="vital-footer">8 Cores Active</div>
+        </div>
+
+        <div class="vital-card">
+          <div class="vital-label">RAM USAGE</div>
+          <div class="vital-circle" style="--val: 48%">
+            <span class="vital-value" id="val-ram">48%</span>
+          </div>
+          <div class="vital-footer" id="val-ram-text">7.6 / 15.8 GB</div>
+        </div>
+
+        <div class="vital-card">
+          <div class="vital-label">STORAGE C:</div>
+          <div class="vital-circle" style="--val: 70%">
+            <span class="vital-value" id="val-disk">70%</span>
+          </div>
+          <div class="vital-footer" id="val-disk-text">145 GB Free</div>
+        </div>
+
+        <div class="vital-card">
+          <div class="vital-label">BATTERY</div>
+          <div class="vital-circle" style="--val: 100%">
+            <span class="vital-value" id="val-batt">100%</span>
+          </div>
+          <div class="vital-footer" id="val-batt-text">AC Connected</div>
+        </div>
+      </div>
+
+      <!-- Multi-Agent Status Matrix -->
+      <div class="panel-header margin-top">
+        <h2 class="panel-title">MULTI-AGENT MATRIX</h2>
+        <span class="panel-badge">5 AGENTS</span>
+      </div>
+
+      <div class="agents-matrix">
+        <div class="agent-card active">
+          <div class="agent-avatar manager-avatar">M</div>
+          <div class="agent-info">
+            <div class="agent-name">MANAGER AGENT</div>
+            <div class="agent-role">Goal Orchestration & Voice Response</div>
+          </div>
+          <span class="agent-status-badge">ORCHESTRATING</span>
+        </div>
+
+        <div class="agent-card active">
+          <div class="agent-avatar thinker-avatar">T</div>
+          <div class="agent-info">
+            <div class="agent-name">THINKER AGENT</div>
+            <div class="agent-role">Gemini 3.7 Flash Cognitive Planner</div>
+          </div>
+          <span class="agent-status-badge">ONLINE</span>
+        </div>
+
+        <div class="agent-card">
+          <div class="agent-avatar executor-avatar">E</div>
+          <div class="agent-info">
+            <div class="agent-name">EXECUTOR AGENT</div>
+            <div class="agent-role">Win32, PowerShell, Browser & Apps</div>
+          </div>
+          <span class="agent-status-badge">READY</span>
+        </div>
+
+        <div class="agent-card">
+          <div class="agent-avatar coder-avatar">C</div>
+          <div class="agent-info">
+            <div class="agent-name">CODER AGENT</div>
+            <div class="agent-role">Autonomous Software Engineering</div>
+          </div>
+          <span class="agent-status-badge">STANDBY</span>
+        </div>
+
+        <div class="agent-card">
+          <div class="agent-avatar sentinel-avatar">S</div>
+          <div class="agent-info">
+            <div class="agent-name">SAFETY SENTINEL</div>
+            <div class="agent-role">High-Risk Interceptor Guardrail</div>
+          </div>
+          <span class="agent-status-badge shield">ARMED</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Center Column: Glowing Ultron Core & Interactive Console -->
+    <section class="hud-panel center-panel">
+      <!-- Animated Holographic Core Reactor -->
+      <div class="reactor-stage">
+        <div class="reactor-outer-ring"></div>
+        <div class="reactor-middle-ring"></div>
+        <div class="reactor-hex-grid"></div>
+        <div class="reactor-inner-ring">
+          <div class="ultron-emblem">
+            <span>U</span>
+          </div>
+        </div>
+        <div class="waveform-container" id="waveform">
+          <span class="wave-bar"></span>
+          <span class="wave-bar"></span>
+          <span class="wave-bar"></span>
+          <span class="wave-bar"></span>
+          <span class="wave-bar"></span>
+          <span class="wave-bar"></span>
+          <span class="wave-bar"></span>
+        </div>
+      </div>
+
+      <div class="reactor-status-text">
+        <span class="subtext">NEURAL VOICE & COGNITIVE ENGINE ACTIVE</span>
+        <h2 class="status-headline" id="hud-headline">"I am ready for your command, Sir."</h2>
+      </div>
+
+      <!-- Quick Action Chips -->
+      <div class="quick-commands">
+        <button class="chip-btn" onclick="sendQuickCommand('How is my laptop system doing?')">⚡ System Vitals</button>
+        <button class="chip-btn" onclick="sendQuickCommand('Open Chrome and go to chatgpt.com')">🌐 Open ChatGPT</button>
+        <button class="chip-btn" onclick="sendQuickCommand('What is on my screen?')">👁️ Screen Vision</button>
+        <button class="chip-btn" onclick="sendQuickCommand('Connect VPN to Germany')">🛡️ Connect VPN</button>
+        <button class="chip-btn" onclick="sendQuickCommand('Create a folder called ClientX on Desktop and scaffold a simple landing page')">💻 Build Project</button>
+      </div>
+
+      <!-- User Command Input Box -->
+      <div class="command-input-container">
+        <button class="mic-btn" id="mic-trigger" title="Voice Activation">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+            <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+          </svg>
+        </button>
+        <input type="text" id="user-input" placeholder="Give Ultron a command (or speak)..." autocomplete="off">
+        <button class="send-btn" id="send-trigger">
+          <span>TRANSMIT</span>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Live Execution Log Display -->
+      <div class="execution-output-box" id="output-box">
+        <div class="log-entry system">
+          <span class="timestamp">[SYSTEM READY]</span> Ultron Multi-Agent Core running directly on Windows 11. Google Gemini 3.7 Flash connected.
+        </div>
+      </div>
+    </section>
+
+    <!-- Right Column: Audit Log Stream & Project Vault -->
+    <section class="hud-panel right-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">IMMUTABLE EVENT LOG</h2>
+        <span class="panel-badge">SQLITE WAL</span>
+      </div>
+
+      <div class="events-stream" id="events-stream">
+        <div class="event-card">
+          <div class="event-top">
+            <span class="agent-tag">Thinker</span>
+            <span class="event-time">Just now</span>
+          </div>
+          <div class="event-action">PLAN_CREATED</div>
+          <div class="event-desc">Evaluated intent & generated execution steps via Gemini 3.7 Flash</div>
+        </div>
+
+        <div class="event-card">
+          <div class="event-top">
+            <span class="agent-tag executor-tag">Executor</span>
+            <span class="event-time">Just now</span>
+          </div>
+          <div class="event-action">EXECUTE_COMMAND</div>
+          <div class="event-desc">PowerShell hardware query executed successfully</div>
+        </div>
+
+        <div class="event-card">
+          <div class="event-top">
+            <span class="agent-tag coder-tag">Coder</span>
+            <span class="event-time">Recent</span>
+          </div>
+          <div class="event-action">PROJECT_DEVELOPED</div>
+          <div class="event-desc">Scaffolded project files in UltronProjects/</div>
+        </div>
+      </div>
+
+      <!-- Project Vault Section -->
+      <div class="panel-header margin-top">
+        <h2 class="panel-title">PROJECT VAULT</h2>
+        <span class="panel-badge">LOCAL FILES</span>
+      </div>
+
+      <div class="vault-list" id="vault-list">
+        <div class="vault-item">
+          <div class="vault-icon">📁</div>
+          <div class="vault-info">
+            <div class="vault-title">TestProject</div>
+            <div class="vault-path">C:\ULTRON\UltronProjects\TestProject</div>
+          </div>
+          <button class="open-folder-btn" onclick="openProjectFolder('TestProject')">OPEN</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
