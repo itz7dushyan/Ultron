@@ -2,12 +2,14 @@
 
 A simple Python Hello World project.
 
-## Running the script
+## Running the application
+
 ```bash
 python main.py
 ```
 
 ## Running tests
+
 ```bash
 python -m unittest test_main.py
 ```

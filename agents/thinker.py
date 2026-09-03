@@ -50,6 +50,17 @@ class ThinkerAgent(BaseAgent):
             "}"
         )
 
+        prompt_clean = user_prompt.strip().lower()
+        if prompt_clean in ("wake", "wake up", "hey", "hello", "hi", "ultron", "yo", "k", "ok"):
+            plan = {
+                "intent_summary": "System wake & greeting acknowledgment",
+                "requires_confirmation": False,
+                "steps": [],
+                "spoken_response": "Online and ready, Sir. What would you like me to do?"
+            }
+            self.log(action="PLAN_CREATED", target=plan["intent_summary"], details={"step_count": 0, "risk": False})
+            return plan
+
         user_content = (
             f"User Instruction: {user_prompt}\n"
             f"Current Context: {json.dumps(context, default=str)}\n"

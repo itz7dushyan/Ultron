@@ -58,23 +58,20 @@ class AudioEngine:
             asyncio.run(self.speak_async(text))
 
     def _play_audio_windows(self, audio_file: Path):
-        """Plays audio file on Windows using Windows Media Player COM object without extra drivers."""
+        """Plays audio file natively on Windows using sounddevice and soundfile."""
         try:
-            # Escape path for PowerShell
-            ps_path = str(audio_file.resolve()).replace("'", "''")
-            ps_command = (
-                f"$wmp = New-Object -ComObject WMPlayer.OCX; "
-                f"$wmp.URL = '{ps_path}'; "
-                f"$wmp.controls.play(); "
-                f"while ($wmp.playState -ne 1 -and $wmp.playState -ne 8) {{ Start-Sleep -Milliseconds 150 }}"
-            )
-            subprocess.run(
-                ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_command],
-                capture_output=True,
-                timeout=25
-            )
+            import soundfile as sf
+            import sounddevice as sd
+            data, fs = sf.read(str(audio_file))
+            sd.play(data, fs)
+            sd.wait()
         except Exception as e:
-            logger.debug(f"Audio playback note: {e}")
+            logger.warning(f"Native audio playback warning: {e}")
+            try:
+                import winsound
+                winsound.PlaySound(str(audio_file), winsound.SND_FILENAME)
+            except Exception:
+                pass
 
     def transcribe_audio_file(self, audio_path: str) -> Optional[str]:
         """Transcribes an audio recording using Groq or OpenAI Whisper API."""
