@@ -1,9 +1,13 @@
 # TestProject
 
-A simple Python hello world application.
+A simple Python Hello World project.
 
-## Running the Project
-
+## Running the script
 ```bash
 python main.py
+```
+
+## Running tests
+```bash
+python -m unittest test_main.py
 ```

@@ -1,6 +1,9 @@
-# Ultron Generated Python Script
+def get_greeting(name: str = "World") -> str:
+    return f"Hello, {name}!"
+
 def main():
-    print("Hello from Ultron!")
+    greeting = get_greeting()
+    print(greeting)
 
 if __name__ == "__main__":
     main()
