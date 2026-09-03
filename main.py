@@ -52,13 +52,14 @@ def print_welcome():
     else:
         model_name = config.OPENAI_MODEL
     info_table.add_row("🧠 Brain (LLM Provider)", f"[cyan]{config.LLM_PROVIDER.upper()}[/cyan] ({model_name})")
-    info_table.add_row("🎙️ Voice Output (TTS)", f"[green]{config.TTS_VOICE}[/green]")
-    info_table.add_row("👂 Voice Wake Triggers", "[bold cyan]'Ultron', 'Hey Ultron', 'Wake up', 'Hi Ultron'[/bold cyan]")
+    info_table.add_row("🎙️ Voice Persona", "[bold red]Marvel Ultron (Deep Robotic Baritone)[/bold red]")
+    info_table.add_row("📞 Live Call Mode", "[bold green]Continuous (Stays on call until dismissed)[/bold green]")
+    info_table.add_row("👂 Voice Wake Triggers", "[bold cyan]'Ultron', 'Hey Ultron', 'Wake up'[/bold cyan]")
     info_table.add_row("🛡️ Safety Sentinel", "[bold yellow]Active (Dangerous actions require confirmation)[/bold yellow]")
     info_table.add_row("🌐 Multi-Agent Team", "[magenta]Manager, Thinker, Executor, Coder, QA/Debugger[/magenta]")
     info_table.add_row("📁 Projects Directory", f"[blue]{config.PROJECT_ROOT / 'UltronProjects'}[/blue]")
     console.print(Panel(info_table, title="[bold red]System Status[/bold red]", border_style="red"))
-    console.print("[dim]Say [bold cyan]'Hey Ultron'[/bold cyan] or [bold cyan]'Wake up'[/bold cyan] anytime, or type a command. Type [bold red]'logs'[/bold red] for history, [bold red]'exit'[/bold red] to quit.[/dim]\n")
+    console.print("[dim]Say [bold cyan]'Hey Ultron'[/bold cyan] to connect a live call. Say [bold red]'That\\'s enough'[/bold red] to end it.[/dim]\n")
 
 def show_audit_logs():
     events = state_manager.get_history(limit=15)

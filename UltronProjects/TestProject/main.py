@@ -1,15 +1,13 @@
-"""
-Main entry point for TestProject.
-"""
-
-def get_hello_message(name: str = "World") -> str:
-    """Return a greeting message."""
+def get_greeting(name: str = "World") -> str:
+    """Generates a greeting message."""
     return f"Hello, {name}!"
 
+
 def main() -> None:
-    """Main execution function."""
-    message = get_hello_message()
+    """Main entry point of the application."""
+    message = get_greeting()
     print(message)
+
 
 if __name__ == "__main__":
     main()

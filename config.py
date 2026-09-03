@@ -41,9 +41,11 @@ class UltronConfig:
     ANTHROPIC_MODEL: str = os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022")
     GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
     
-    # Voice configuration
-    TTS_VOICE: str = os.getenv("TTS_VOICE", "en-IN-PrabhatNeural")
-    TTS_RATE: str = os.getenv("TTS_RATE", "+5%")
+    # Voice configuration (Marvel Ultron Cybernetic Voice)
+    TTS_VOICE: str = os.getenv("TTS_VOICE", "en-US-ChristopherNeural")
+    TTS_RATE: str = os.getenv("TTS_RATE", "-5%")
+    TTS_PITCH: str = os.getenv("TTS_PITCH", "-25Hz")
+    TTS_CYBERNETIC_FILTER: bool = os.getenv("TTS_CYBERNETIC_FILTER", "true").lower() in ("true", "1", "yes")
     TTS_VOLUME: str = os.getenv("TTS_VOLUME", "+0%")
     VOICE_INPUT_ENABLED: bool = os.getenv("VOICE_INPUT_ENABLED", "true").lower() in ("true", "1", "yes")
     VOICE_OUTPUT_ENABLED: bool = os.getenv("VOICE_OUTPUT_ENABLED", "true").lower() in ("true", "1", "yes")

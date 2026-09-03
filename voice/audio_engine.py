@@ -20,8 +20,38 @@ class AudioEngine:
     def __init__(self):
         self.tts_voice = config.TTS_VOICE
         self.tts_rate = config.TTS_RATE
+        self.tts_pitch = getattr(config, "TTS_PITCH", "-25Hz")
         self.tts_volume = config.TTS_VOLUME
+        self.use_filter = getattr(config, "TTS_CYBERNETIC_FILTER", True)
         self.is_speaking = False
+
+    def _apply_ultron_filter(self, mp3_path: Path) -> Path:
+        """Applies cybernetic metallic resonator comb-filter for movie-accurate Ultron voice."""
+        try:
+            import soundfile as sf
+            import numpy as np
+            data, fs = sf.read(str(mp3_path))
+            
+            # 18ms comb-filter delay for robotic metallic resonance
+            delay_samples = int(fs * 0.018)
+            robot_layer = np.zeros_like(data)
+            if len(data.shape) == 1:
+                robot_layer[delay_samples:] = data[:-delay_samples] * 0.32
+                ultron_voice = data * 0.88 + robot_layer
+            else:
+                robot_layer[delay_samples:, :] = data[:-delay_samples, :] * 0.32
+                ultron_voice = data * 0.88 + robot_layer
+
+            max_val = np.max(np.abs(ultron_voice))
+            if max_val > 0:
+                ultron_voice = ultron_voice / max_val * 0.95
+
+            wav_path = mp3_path.with_suffix(".wav")
+            sf.write(str(wav_path), ultron_voice, fs)
+            return wav_path
+        except Exception as e:
+            logger.debug(f"Ultron filter note: {e}")
+            return mp3_path
 
     async def speak_async(self, text: str):
         """Generates neural speech and plays it back asynchronously."""
@@ -37,10 +67,13 @@ class AudioEngine:
                 text=text,
                 voice=self.tts_voice,
                 rate=self.tts_rate,
+                pitch=self.tts_pitch,
                 volume=self.tts_volume
             )
             await communicate.save(str(mp3_path))
-            self._play_audio_windows(mp3_path)
+            
+            play_target = self._apply_ultron_filter(mp3_path) if self.use_filter else mp3_path
+            self._play_audio_windows(play_target)
         except Exception as e:
             logger.warning(f"TTS synthesis warning: {e}. Printing to console instead.")
         finally:
