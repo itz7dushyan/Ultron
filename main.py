@@ -134,6 +134,8 @@ def main():
             # Voice reply
             audio_engine.speak(spoken_text)
 
+            console.print("[dim green]✓ Task complete. Ready for your next command:[/dim green]")
+
         except KeyboardInterrupt:
             console.print("\n[yellow]Session interrupted. Type 'exit' to quit.[/yellow]")
         except Exception as e:

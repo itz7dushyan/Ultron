@@ -104,12 +104,12 @@ class ThinkerAgent(BaseAgent):
             }
         else:
             return {
-                "intent_summary": "Process general request",
+                "intent_summary": "Standing by for user command",
                 "requires_confirmation": False,
                 "steps": [
-                    {"step_id": 1, "assigned_agent": "Executor", "action": "echo", "parameters": {"message": user_prompt}, "description": "Acknowledge request"}
+                    {"step_id": 1, "assigned_agent": "Executor", "action": "echo", "parameters": {"message": user_prompt}, "description": "Standing by"}
                 ],
-                "spoken_response": "Right away. Processing your request."
+                "spoken_response": "Acknowledged. Standing by for your next command, Sir."
             }
 
 thinker_agent = ThinkerAgent()
