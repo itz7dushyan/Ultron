@@ -14,13 +14,23 @@ Ultron is a voice-controlled, multi-agent AI assistant engineered specifically f
 1. Open this folder:
    `C:\ULTRON\`
 2. Double-click `install.bat` (or run `python -m pip install -r requirements.txt` in PowerShell).
-3. Open `.env` in Notepad and paste your API key (e.g., `GROQ_API_KEY=...` or `OPENAI_API_KEY=...`).
+3. Your Google Gemini 3.7 Flash API keys are already configured in `.env` with primary and fallback redundancy!
 
 ### 3. Launching Ultron
-Double-click `run.bat` or run:
-```powershell
-python main.py
-```
+You have two great ways to interact with Ultron:
+
+- **Option A: Cybernetic Web HUD Portal (Recommended)**
+  Double-click `portal.bat` or run:
+  ```powershell
+  python portal_server.py
+  ```
+  *Opens a futuristic, crimson dark-mode interactive HUD in your browser with real-time system gauges, agent cards, live audio waveform, and command terminal!*
+
+- **Option B: Native Desktop Terminal & Voice Assistant**
+  Double-click `run.bat` or run:
+  ```powershell
+  python main.py
+  ```
 
 ---
 
