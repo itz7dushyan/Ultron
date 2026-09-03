@@ -12,6 +12,7 @@ from tools.system_telemetry import system_telemetry
 from tools.vision_control import vision_control
 from tools.memory_bank import memory_bank
 from tools.doc_writer import doc_writer
+from tools.wallpaper_control import wallpaper_control
 
 class ExecutorAgent(BaseAgent):
     """
@@ -132,6 +133,11 @@ class ExecutorAgent(BaseAgent):
             elif action_clean in ("set_chrome_profile", "set_personal_profile"):
                 profile_arg = parameters.get("profile") or parameters.get("name") or "Default"
                 return memory_bank.set_personal_chrome_profile(profile_arg)
+
+            elif action_clean in ("change_wallpaper", "set_wallpaper", "wallpaper"):
+                theme = parameters.get("theme") or parameters.get("style") or "random"
+                path = parameters.get("path") or parameters.get("image_path")
+                return wallpaper_control.change_wallpaper(theme=theme, custom_path=path)
 
             elif action_clean == "echo":
                 return {"success": True, "message": parameters.get("message", "")}

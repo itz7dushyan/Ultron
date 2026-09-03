@@ -9,6 +9,7 @@ from tools.system_telemetry import system_telemetry
 from tools.vision_control import vision_control
 from tools.memory_bank import memory_bank
 from tools.doc_writer import doc_writer
+from tools.wallpaper_control import wallpaper_control
 
 __all__ = [
     "safety_sentinel",
@@ -22,5 +23,6 @@ __all__ = [
     "system_telemetry",
     "vision_control",
     "memory_bank",
-    "doc_writer"
+    "doc_writer",
+    "wallpaper_control"
 ]

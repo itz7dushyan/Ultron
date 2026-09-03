@@ -30,6 +30,7 @@ class ThinkerAgent(BaseAgent):
             "- APIGateway: send_email, post_to_instagram, create_facebook_ad_campaign, make_call\n"
             "- SystemTelemetry: system_status, hardware_stats\n"
             "- VisionControl: analyze_screen, screenshot\n"
+            "- WallpaperControl: change_wallpaper (parameters: {\"theme\": \"ultron\"|\"cyberpunk\"|\"nature\"|\"space\"|\"dark\"|\"bing\"|\"random\"})\n"
             "- Coder: generate_project_code, edit_code\n"
             "- QADebugger: verify_code, test_execution\n\n"
             "You must respond ONLY with a valid JSON object matching this schema:\n"
@@ -187,6 +188,37 @@ class ThinkerAgent(BaseAgent):
                     }
                 ],
                 "spoken_response": f"I have committed {profile} to memory as your personal Chrome profile."
+            }
+
+        # 3. Desktop Wallpaper Engine
+        if any(w in p for w in ("wallpaper", "background image", "desktop background")):
+            theme = "random"
+            if any(w in p for w in ("ultron", "marvel", "red", "evil")):
+                theme = "ultron"
+            elif any(w in p for w in ("cyberpunk", "neon", "future")):
+                theme = "cyberpunk"
+            elif any(w in p for w in ("nature", "mountain", "forest", "landscape", "green")):
+                theme = "nature"
+            elif any(w in p for w in ("space", "galaxy", "stars", "nebula", "cosmos")):
+                theme = "space"
+            elif any(w in p for w in ("dark", "minimal", "black", "clean", "abstract")):
+                theme = "dark"
+            elif "bing" in p:
+                theme = "bing"
+
+            return {
+                "intent_summary": f"Change desktop wallpaper to 4K {theme} aesthetic",
+                "requires_confirmation": False,
+                "steps": [
+                    {
+                        "step_id": 1,
+                        "assigned_agent": "Executor",
+                        "action": "change_wallpaper",
+                        "parameters": {"theme": theme},
+                        "description": f"Download and set {theme} 4K wallpaper"
+                    }
+                ],
+                "spoken_response": f"Applying a curated 4K {theme} wallpaper to your desktop now."
             }
 
         # Guard: Do not intercept complex multi-part sentences in simple site launcher
