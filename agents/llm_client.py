@@ -1,6 +1,8 @@
 import os
 import json
 import logging
+import warnings
+warnings.filterwarnings("ignore")
 from typing import List, Dict, Any, Optional
 from config import config
 

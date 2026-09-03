@@ -1,5 +1,15 @@
 import sys
 import os
+import warnings
+warnings.filterwarnings("ignore")
+
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 from pathlib import Path
 from rich.console import Console
 from rich.panel import Panel
@@ -17,7 +27,7 @@ from agents.manager import manager_agent
 from voice.audio_engine import audio_engine
 from tools.safety_sentinel import safety_sentinel
 
-console = Console()
+console = Console(force_terminal=True, legacy_windows=False)
 
 BANNER = """[bold red]
 ██╗   ██╗██╗  ████████╗██████╗  ██████╗ ███╗   ██╗
@@ -32,7 +42,15 @@ BANNER = """[bold red]
 def print_welcome():
     console.print(BANNER)
     info_table = Table(show_header=False, box=box.ROUNDED, border_style="dim")
-    info_table.add_row("🧠 Brain (LLM Provider)", f"[cyan]{config.LLM_PROVIDER.upper()}[/cyan] ({config.GROQ_MODEL if config.LLM_PROVIDER=='groq' else config.OPENAI_MODEL})")
+    if config.LLM_PROVIDER == 'gemini':
+        model_name = config.GEMINI_MODEL
+    elif config.LLM_PROVIDER == 'groq':
+        model_name = config.GROQ_MODEL
+    elif config.LLM_PROVIDER == 'anthropic':
+        model_name = config.ANTHROPIC_MODEL
+    else:
+        model_name = config.OPENAI_MODEL
+    info_table.add_row("🧠 Brain (LLM Provider)", f"[cyan]{config.LLM_PROVIDER.upper()}[/cyan] ({model_name})")
     info_table.add_row("🎙️ Voice Synthesis (TTS)", f"[green]{config.TTS_VOICE}[/green]")
     info_table.add_row("🛡️ Safety Sentinel", "[bold yellow]Active (Dangerous actions require confirmation)[/bold yellow]")
     info_table.add_row("🌐 Multi-Agent Team", "[magenta]Manager, Thinker, Executor, Coder, QA/Debugger[/magenta]")

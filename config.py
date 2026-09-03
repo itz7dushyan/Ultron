@@ -70,6 +70,10 @@ class UltronConfig:
     TWILIO_PHONE_NUMBER: Optional[str] = os.getenv("TWILIO_PHONE_NUMBER")
     
     # Paths
+    PROJECT_ROOT: Path = PROJECT_ROOT
+    PROJECTS_DIR: Path = PROJECTS_DIR
+    DATA_DIR: Path = DATA_DIR
+    LOGS_DIR: Path = LOGS_DIR
     DATABASE_PATH: Path = DATA_DIR / "ultron_state.db"
     AUDIT_LOG_FILE: Path = LOGS_DIR / "ultron_audit.log"
 
