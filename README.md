@@ -17,20 +17,28 @@ Ultron is a voice-controlled, multi-agent AI assistant engineered specifically f
 3. Your Google Gemini 3.7 Flash API keys are already configured in `.env` with primary and fallback redundancy!
 
 ### 3. Launching Ultron
-You have two great ways to interact with Ultron:
+You have three ways to interact with Ultron:
 
-- **Option A: Cybernetic Web HUD Portal (Recommended)**
+- **Option A: Pure Hands-Free Voice Assistant (Say "Hey Ultron" or "Wake up")**
+  Double-click `voice_mode.bat` or run:
+  ```powershell
+  python main.py --voice
+  ```
+  *No keyboard needed! Ultron listens to your laptop microphone for "Ultron", "Hey Ultron", or "Wake up", answers in a natural voice, and executes your requests.*
+
+- **Option B: Hybrid Desktop Terminal (Voice + Keyboard)**
+  Double-click `run.bat` or run:
+  ```powershell
+  python main.py
+  ```
+  *Supports both background voice activation AND typing!*
+
+- **Option C: Cybernetic Web HUD Portal**
   Double-click `portal.bat` or run:
   ```powershell
   python portal_server.py
   ```
   *Opens a futuristic, crimson dark-mode interactive HUD in your browser with real-time system gauges, agent cards, live audio waveform, and command terminal!*
-
-- **Option B: Native Desktop Terminal & Voice Assistant**
-  Double-click `run.bat` or run:
-  ```powershell
-  python main.py
-  ```
 
 ---
 

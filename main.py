@@ -25,6 +25,7 @@ from config import config
 from shared_state.state_manager import state_manager
 from agents.manager import manager_agent
 from voice.audio_engine import audio_engine
+from voice.wake_word import wake_detector
 from tools.safety_sentinel import safety_sentinel
 
 console = Console(force_terminal=True, legacy_windows=False)
@@ -51,12 +52,13 @@ def print_welcome():
     else:
         model_name = config.OPENAI_MODEL
     info_table.add_row("🧠 Brain (LLM Provider)", f"[cyan]{config.LLM_PROVIDER.upper()}[/cyan] ({model_name})")
-    info_table.add_row("🎙️ Voice Synthesis (TTS)", f"[green]{config.TTS_VOICE}[/green]")
+    info_table.add_row("🎙️ Voice Output (TTS)", f"[green]{config.TTS_VOICE}[/green]")
+    info_table.add_row("👂 Voice Wake Triggers", "[bold cyan]'Ultron', 'Hey Ultron', 'Wake up', 'Hi Ultron'[/bold cyan]")
     info_table.add_row("🛡️ Safety Sentinel", "[bold yellow]Active (Dangerous actions require confirmation)[/bold yellow]")
     info_table.add_row("🌐 Multi-Agent Team", "[magenta]Manager, Thinker, Executor, Coder, QA/Debugger[/magenta]")
     info_table.add_row("📁 Projects Directory", f"[blue]{config.PROJECT_ROOT / 'UltronProjects'}[/blue]")
     console.print(Panel(info_table, title="[bold red]System Status[/bold red]", border_style="red"))
-    console.print("[dim]Type your command or say 'Hey Ultron'. Type [bold red]'logs'[/bold red] to view audit events, [bold red]'exit'[/bold red] to quit.[/dim]\n")
+    console.print("[dim]Say [bold cyan]'Hey Ultron'[/bold cyan] or [bold cyan]'Wake up'[/bold cyan] anytime, or type a command. Type [bold red]'logs'[/bold red] for history, [bold red]'exit'[/bold red] to quit.[/dim]\n")
 
 def show_audit_logs():
     events = state_manager.get_history(limit=15)
@@ -86,6 +88,44 @@ def show_audit_logs():
 
     console.print(table)
 
+def execute_command(clean_input: str, source: str = "Keyboard"):
+    if not clean_input:
+        return
+
+    if clean_input.lower() in ("exit", "quit", "shutdown"):
+        farewell = "Goodbye. Ultron shutting down."
+        console.print(f"[bold red]Ultron:[/bold red] {farewell}")
+        audio_engine.speak(farewell)
+        os._exit(0)
+
+    if clean_input.lower() in ("logs", "audit", "history"):
+        show_audit_logs()
+        return
+
+    if clean_input.lower() in ("status", "info"):
+        print_welcome()
+        return
+
+    if source == "Voice":
+        console.print(f"\n[bold cyan]⚡ Voice Input Received:[/bold cyan] [bold white]\"{clean_input}\"[/bold white]")
+
+    # Process command through Multi-Agent System
+    with console.status("[bold red]Ultron Multi-Agent Swarm coordinating...[/bold red]"):
+        response = manager_agent.handle_user_command(clean_input)
+
+    spoken_text = response.get("spoken_response", "Task completed.")
+    
+    # Print Ultron's response
+    console.print(Panel(
+        f"[bold white]{spoken_text}[/bold white]",
+        title=f"[bold red]Ultron Response ({source})[/bold red]",
+        border_style="red"
+    ))
+
+    # Voice reply
+    audio_engine.speak(spoken_text)
+    console.print("[dim green]✓ Task complete. Ready for next command (speak 'Ultron' or type):[/dim green]")
+
 def main():
     print_welcome()
 
@@ -96,46 +136,31 @@ def main():
 
     safety_sentinel.set_confirmation_hook(voice_confirm)
 
+    is_hands_free = "--voice" in sys.argv
+
+    # Start continuous background voice listener
+    if config.VOICE_INPUT_ENABLED:
+        wake_detector.start_background_listener(
+            on_command_callback=lambda cmd: execute_command(cmd, source="Voice"),
+            status_logger=lambda msg: console.print(f"[dim cyan]{msg}[/dim cyan]")
+        )
+
+    if is_hands_free:
+        console.print("[bold green]● Pure Hands-Free Voice Mode Active.[/bold green] Say [bold cyan]'Hey Ultron'[/bold cyan] or [bold cyan]'Wake up'[/bold cyan] to talk.")
+        console.print("[dim]Press Ctrl+C anytime to stop.[/dim]\n")
+        try:
+            import time
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            console.print("\n[yellow]Voice mode stopped.[/yellow]")
+            return
+
+    # Standard interactive loop (supports both typing AND voice wake-up)
     while True:
         try:
             user_input = Prompt.ask("\n[bold red]You[/bold red]")
-            clean_input = user_input.strip()
-
-            if not clean_input:
-                continue
-
-            if clean_input.lower() in ("exit", "quit", "shutdown"):
-                farewell = "Goodbye. Ultron shutting down."
-                console.print(f"[bold red]Ultron:[/bold red] {farewell}")
-                audio_engine.speak(farewell)
-                break
-
-            if clean_input.lower() in ("logs", "audit", "history"):
-                show_audit_logs()
-                continue
-
-            if clean_input.lower() in ("status", "info"):
-                print_welcome()
-                continue
-
-            # Process command through Multi-Agent System
-            with console.status("[bold red]Ultron Multi-Agent Swarm coordinating...[/bold red]"):
-                response = manager_agent.handle_user_command(clean_input)
-
-            spoken_text = response.get("spoken_response", "Task completed.")
-            
-            # Print Ultron's response
-            console.print(Panel(
-                f"[bold white]{spoken_text}[/bold white]",
-                title="[bold red]Ultron Response[/bold red]",
-                border_style="red"
-            ))
-
-            # Voice reply
-            audio_engine.speak(spoken_text)
-
-            console.print("[dim green]✓ Task complete. Ready for your next command:[/dim green]")
-
+            execute_command(user_input.strip(), source="Keyboard")
         except KeyboardInterrupt:
             console.print("\n[yellow]Session interrupted. Type 'exit' to quit.[/yellow]")
         except Exception as e:

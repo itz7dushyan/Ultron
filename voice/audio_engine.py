@@ -21,12 +21,14 @@ class AudioEngine:
         self.tts_voice = config.TTS_VOICE
         self.tts_rate = config.TTS_RATE
         self.tts_volume = config.TTS_VOLUME
+        self.is_speaking = False
 
     async def speak_async(self, text: str):
         """Generates neural speech and plays it back asynchronously."""
         if not config.VOICE_OUTPUT_ENABLED or not text.strip():
             return
 
+        self.is_speaking = True
         mp3_path = CACHE_DIR / "ultron_speech.mp3"
         
         try:
@@ -41,6 +43,8 @@ class AudioEngine:
             self._play_audio_windows(mp3_path)
         except Exception as e:
             logger.warning(f"TTS synthesis warning: {e}. Printing to console instead.")
+        finally:
+            self.is_speaking = False
 
     def speak(self, text: str):
         """Synchronous wrapper for speak_async."""
