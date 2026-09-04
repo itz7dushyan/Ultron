@@ -14,6 +14,7 @@ from tools.memory_bank import memory_bank
 from tools.doc_writer import doc_writer
 from tools.wallpaper_control import wallpaper_control
 from tools.media_organizer import media_organizer
+from tools.system_control import system_control
 
 class ExecutorAgent(BaseAgent):
     """
@@ -154,6 +155,74 @@ class ExecutorAgent(BaseAgent):
 
             elif action_clean in ("close_window", "close_active_window"):
                 return app_tools.close_active_window()
+
+            # 7. Volume and Audio Controls
+            elif action_clean in ("set_volume", "volume"):
+                level = parameters.get("level") or parameters.get("percent") or parameters.get("target") or 50
+                return system_control.set_volume(int(level))
+
+            elif action_clean in ("volume_up", "increase_volume"):
+                step = int(parameters.get("step", 10))
+                return system_control.volume_up(step)
+
+            elif action_clean in ("volume_down", "decrease_volume"):
+                step = int(parameters.get("step", 10))
+                return system_control.volume_down(step)
+
+            elif action_clean in ("mute_audio", "mute"):
+                return system_control.mute()
+
+            elif action_clean in ("unmute_audio", "unmute"):
+                return system_control.unmute()
+
+            # 8. Media Playback Controls
+            elif action_clean in ("play_pause_media", "media_play", "media_pause", "toggle_playback"):
+                return system_control.play_pause()
+
+            elif action_clean in ("next_track", "next_media", "media_next"):
+                return system_control.next_track()
+
+            elif action_clean in ("prev_track", "previous_track", "prev_media"):
+                return system_control.prev_track()
+
+            # 9. System Power and Desktop Controls
+            elif action_clean in ("lock_pc", "lock_workstation", "lock"):
+                return system_control.lock_workstation()
+
+            elif action_clean in ("show_desktop", "minimize_all"):
+                return system_control.show_desktop()
+
+            elif action_clean in ("maximize_window",):
+                return system_control.maximize_window()
+
+            elif action_clean in ("minimize_window",):
+                return system_control.minimize_window()
+
+            # 10. Clipboard Tools
+            elif action_clean in ("read_clipboard", "get_clipboard"):
+                return system_control.read_clipboard()
+
+            elif action_clean in ("copy_clipboard", "set_clipboard"):
+                text = parameters.get("text") or parameters.get("content") or ""
+                return system_control.copy_clipboard(text)
+
+            # 11. Browser Search and Navigation Controls
+            elif action_clean in ("search_google", "google_search"):
+                query = parameters.get("query") or parameters.get("target") or ""
+                return browser_tools.search_google(query)
+
+            elif action_clean in ("search_youtube", "youtube_search", "play_youtube"):
+                query = parameters.get("query") or parameters.get("target") or ""
+                return browser_tools.search_youtube(query)
+
+            elif action_clean in ("new_tab", "open_tab"):
+                return browser_tools.new_tab()
+
+            elif action_clean in ("reload_tab", "refresh_tab", "refresh_page"):
+                return browser_tools.reload_tab()
+
+            elif action_clean in ("switch_tab", "next_tab"):
+                return browser_tools.switch_tab()
 
             elif action_clean == "echo":
                 return {"success": True, "message": parameters.get("message", "")}

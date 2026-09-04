@@ -104,39 +104,34 @@ class WakeDetector:
                 self._recognizer.energy_threshold = 80
 
             self._recognizer.dynamic_energy_threshold = True
-            self._recognizer.pause_threshold = 1.3
-            self._recognizer.non_speaking_duration = 0.5
-            logger.info(f"Ultron Microphone calibrated (threshold={self._recognizer.energy_threshold:.1f}, pause_threshold=1.3s)")
+            self._recognizer.pause_threshold = 0.85
+            self._recognizer.non_speaking_duration = 0.4
+            logger.info(f"Ultron Microphone calibrated (threshold={self._recognizer.energy_threshold:.1f}, pause_threshold=0.85s)")
         except Exception as e:
             logger.warning(f"Voice input initialization notice: {e}")
 
+    def _play_tone_async(self, tones):
+        """Plays sound cues asynchronously without blocking the listening loop."""
+        def worker():
+            try:
+                import winsound
+                for freq, dur in tones:
+                    winsound.Beep(freq, dur)
+            except Exception:
+                pass
+        threading.Thread(target=worker, daemon=True).start()
+
     def _play_wake_chime(self):
         """Plays a high-tech chime when the call starts."""
-        try:
-            import winsound
-            winsound.Beep(1200, 100)
-            time.sleep(0.05)
-            winsound.Beep(1600, 120)
-        except Exception:
-            pass
+        self._play_tone_async([(1200, 90), (1600, 110)])
 
     def _play_listen_chirp(self):
         """Plays a subtle chirp indicating Ultron is listening on the active call."""
-        try:
-            import winsound
-            winsound.Beep(900, 70)
-        except Exception:
-            pass
+        self._play_tone_async([(950, 60)])
 
     def _play_disconnect_chime(self):
         """Plays a descending tone when the call session ends."""
-        try:
-            import winsound
-            winsound.Beep(1400, 100)
-            time.sleep(0.05)
-            winsound.Beep(800, 150)
-        except Exception:
-            pass
+        self._play_tone_async([(1400, 90), (800, 130)])
 
     def is_wake_phrase(self, text: str) -> Tuple[bool, str]:
         """Checks if text contains a wake phrase. Returns (is_wake, remaining_command)."""
@@ -166,6 +161,35 @@ class WakeDetector:
         ]
         return any(k in cleaned for k in shutdown_phrases)
 
+    def _transcribe_audio(self, audio_data) -> Optional[str]:
+        """Dual-engine STT: Groq Whisper (ultra-low latency & multilingual) with Google STT fallback."""
+        # 1. Primary: Groq Whisper (whisper-large-v3-turbo)
+        if config.GROQ_API_KEY:
+            try:
+                import io
+                from groq import Groq
+                if not hasattr(self, "_groq_client") or self._groq_client is None:
+                    self._groq_client = Groq(api_key=config.GROQ_API_KEY)
+                wav_bytes = audio_data.get_wav_data()
+                bio = io.BytesIO(wav_bytes)
+                transcription = self._groq_client.audio.transcriptions.create(
+                    file=("voice.wav", bio),
+                    model="whisper-large-v3-turbo",
+                    prompt="Ultron, Spotify, Proton VPN, YouTube, File Explorer, Boss, Google Docs, volume, tab"
+                )
+                if transcription and transcription.text:
+                    result = transcription.text.strip()
+                    if result:
+                        return result
+            except Exception as e:
+                logger.debug(f"Groq Whisper note, attempting Google fallback: {e}")
+
+        # 2. Fallback: Google Speech Recognition
+        try:
+            return self._recognizer.recognize_google(audio_data, language="en-US").strip()
+        except Exception:
+            return None
+
     def listen_single_phrase(self, timeout: int = 5, phrase_time_limit: int = 8) -> Optional[str]:
         """Listens for a single speech phrase from the microphone."""
         if not self._recognizer or not self._microphone:
@@ -177,8 +201,7 @@ class WakeDetector:
         try:
             with self._microphone as source:
                 audio = self._recognizer.listen(source, timeout=timeout, phrase_time_limit=phrase_time_limit)
-            text = self._recognizer.recognize_google(audio, language="en-US")
-            return text.strip()
+            return self._transcribe_audio(audio)
         except (sr.WaitTimeoutError, sr.UnknownValueError):
             return None
         except Exception as e:

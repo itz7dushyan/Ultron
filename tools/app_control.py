@@ -74,25 +74,61 @@ class AppTools:
         return None
 
     def _find_in_start_menu(self, app_name: str) -> Optional[Path]:
-        """Search common Windows Start Menu shortcut folders."""
+        """Search common Windows Start Menu shortcut folders with fuzzy token matching."""
         search_dirs = [
             Path(os.environ.get("PROGRAMDATA", "C:\\ProgramData")) / "Microsoft\\Windows\\Start Menu\\Programs",
             Path(os.environ.get("APPDATA", "")) / "Microsoft\\Windows\\Start Menu\\Programs"
         ]
-        query = app_name.lower().replace(".exe", "")
+        query = app_name.lower().replace(".exe", "").strip()
+        tokens = [t for t in query.split() if len(t) > 2]
+
+        candidates = []
         for base in search_dirs:
             if not base.exists():
                 continue
             for shortcut in base.rglob("*.lnk"):
-                if query in shortcut.stem.lower():
+                stem = shortcut.stem.lower()
+                # Exact match
+                if query == stem:
                     return shortcut
+                # Substring match
+                if query in stem:
+                    candidates.append((1, shortcut))
+                # Token match
+                elif tokens and any(t in stem for t in tokens):
+                    candidates.append((2, shortcut))
+
+        if candidates:
+            candidates.sort(key=lambda x: x[0])
+            return candidates[0][1]
         return None
+
+    def _find_in_windows_apps(self, app_name: str) -> Optional[Path]:
+        """Search Microsoft WindowsApps folder for UWP and Store apps."""
+        winapps = Path(os.environ.get("LOCALAPPDATA", "")) / "Microsoft\\WindowsApps"
+        if not winapps.exists():
+            return None
+        query = app_name.lower().replace(".exe", "").strip()
+        for exe in winapps.glob("*.exe"):
+            if query in exe.stem.lower():
+                return exe
+        return None
+
+    def _clean_app_name(self, raw_name: str) -> str:
+        """Strips conversational noise and verbs from user speech."""
+        name = raw_name.lower().strip()
+        for noise in ("please open", "open", "launch", "start", "run", "kholo", "chalao", "app", "application", "the"):
+            if name.startswith(noise + " "):
+                name = name[len(noise) + 1:].strip()
+            elif name.endswith(" " + noise):
+                name = name[:-len(noise) - 1].strip()
+        return name.strip()
 
     def open_app(self, app_name: str) -> Dict[str, Any]:
         """
         Launches an application by name or common alias.
         """
-        clean_name = app_name.strip().lower()
+        clean_name = self._clean_app_name(app_name)
 
         try:
             # 1. Specialized: Spotify
@@ -121,7 +157,7 @@ class AppTools:
                 state_manager.record_action("AppTools", "OPEN_APP", "explorer.exe", status="success")
                 return {"success": True, "target": "explorer.exe", "message": "Opened File Explorer, Boss."}
 
-            target = COMMON_APPS.get(clean_name, app_name)
+            target = COMMON_APPS.get(clean_name, clean_name)
 
             # 4. Check if it's a protocol (e.g. ms-settings:)
             if ":" in target and not Path(target).is_absolute():
@@ -143,7 +179,14 @@ class AppTools:
                 state_manager.record_action("AppTools", "OPEN_APP", str(shortcut), status="success")
                 return {"success": True, "target": str(shortcut), "message": f"Launched {app_name}, Boss."}
 
-            # 7. Fallback: try direct startfile or shell launch
+            # 7. Check WindowsApps folder (UWP/Store apps)
+            win_app = self._find_in_windows_apps(clean_name)
+            if win_app:
+                subprocess.Popen([str(win_app)], shell=False)
+                state_manager.record_action("AppTools", "OPEN_APP", str(win_app), status="success")
+                return {"success": True, "target": str(win_app), "message": f"Launched {app_name}, Boss."}
+
+            # 8. Fallback: try direct startfile or shell launch
             try:
                 os.startfile(target)
                 state_manager.record_action("AppTools", "OPEN_APP", target, status="success")

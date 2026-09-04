@@ -55,6 +55,45 @@ class BrowserTools:
             state_manager.record_action("BrowserTools", "OPEN_URL", clean_url, details=str(e), status="failed")
             return {"success": False, "error": str(e)}
 
+    def search_google(self, query: str) -> Dict[str, Any]:
+        """Searches Google for query in user's browser."""
+        import urllib.parse
+        encoded = urllib.parse.quote(query.strip())
+        url = f"https://www.google.com/search?q={encoded}"
+        res = self.open_url_quick(url)
+        res["message"] = f"Searching Google for '{query}', Boss."
+        return res
+
+    def search_youtube(self, query: str) -> Dict[str, Any]:
+        """Searches YouTube for query in user's browser."""
+        import urllib.parse
+        encoded = urllib.parse.quote(query.strip())
+        url = f"https://www.youtube.com/results?search_query={encoded}"
+        res = self.open_url_quick(url)
+        res["message"] = f"Searching YouTube for '{query}', Boss."
+        return res
+
+    def new_tab(self) -> Dict[str, Any]:
+        """Opens a new browser tab with Ctrl+T."""
+        import pyautogui
+        pyautogui.hotkey('ctrl', 't')
+        state_manager.record_action("BrowserTools", "NEW_TAB", "Ctrl+T", status="success")
+        return {"success": True, "message": "Opened new tab, Boss."}
+
+    def reload_tab(self) -> Dict[str, Any]:
+        """Reloads current browser tab with Ctrl+R."""
+        import pyautogui
+        pyautogui.hotkey('ctrl', 'r')
+        state_manager.record_action("BrowserTools", "RELOAD_TAB", "Ctrl+R", status="success")
+        return {"success": True, "message": "Reloading page, Boss."}
+
+    def switch_tab(self) -> Dict[str, Any]:
+        """Switches to the next browser tab with Ctrl+Tab."""
+        import pyautogui
+        pyautogui.hotkey('ctrl', 'tab')
+        state_manager.record_action("BrowserTools", "SWITCH_TAB", "Ctrl+Tab", status="success")
+        return {"success": True, "message": "Switched tab, Boss."}
+
     async def _init_playwright(self, headless: bool = False):
         """Initializes Playwright browser session if not already running."""
         try:

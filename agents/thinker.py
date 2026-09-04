@@ -158,18 +158,33 @@ class ThinkerAgent(BaseAgent):
                 spoken_msg = f"Opening Google Docs in your personal profile and writing the paragraph on {topic} now."
                 intent_msg = f"Create document and write paragraph on {topic}"
 
+            steps = [
+                {
+                    "step_id": 1,
+                    "assigned_agent": "Executor",
+                    "action": "create_document",
+                    "parameters": params,
+                    "description": f"Generate document on {topic} and save to {target_folder or 'Documents'}"
+                }
+            ]
+
+            # Detect chained actions: e.g. "then open spotify", "and then open discord"
+            for app_cand in ("spotify", "proton", "discord", "notepad", "chrome", "calculator"):
+                if app_cand in p and any(marker in p for marker in (f"then open {app_cand}", f"and open {app_cand}", f"then {app_cand}", f"also open {app_cand}")):
+                    steps.append({
+                        "step_id": len(steps) + 1,
+                        "assigned_agent": "Executor",
+                        "action": "open_app",
+                        "parameters": {"app_name": app_cand},
+                        "description": f"Launch {app_cand.title()}"
+                    })
+                    spoken_msg += f" And launching {app_cand.title()}, Boss."
+                    break
+
             return {
                 "intent_summary": intent_msg,
                 "requires_confirmation": False,
-                "steps": [
-                    {
-                        "step_id": 1,
-                        "assigned_agent": "Executor",
-                        "action": "create_document",
-                        "parameters": params,
-                        "description": f"Generate document on {topic} and save to {target_folder or 'Documents'}"
-                    }
-                ],
+                "steps": steps,
                 "spoken_response": spoken_msg
             }
 
@@ -272,10 +287,34 @@ class ThinkerAgent(BaseAgent):
             }
 
         # Guard: Do not intercept complex multi-part sentences in simple site launcher
-        if any(w in p for w in ("and write", "and then", "search for", "write")):
+        if any(w in p for w in ("and write", "and then", "write")):
             return None
 
-        # 3. Specific Websites / Chrome / Browser
+        # 3. Specific search requests (YouTube & Google Search)
+        if "youtube" in p and any(w in p for w in ("search", "play", "find", "dhundo", "chalao")):
+            query = user_prompt
+            for marker in ("search youtube for", "play on youtube", "play", "search for", "search", "youtube on", "on youtube"):
+                if marker in query.lower():
+                    query = query.lower().replace(marker, "").replace("youtube", "").strip(" :.,'\"")
+            return {
+                "intent_summary": f"Search YouTube for '{query}'",
+                "requires_confirmation": False,
+                "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "search_youtube", "parameters": {"query": query}, "description": f"Search YouTube for {query}"}],
+                "spoken_response": f"Searching YouTube for '{query}', Boss."
+            }
+        if any(w in p for w in ("google search", "search google", "google pe search")):
+            query = user_prompt
+            for marker in ("google search for", "google search", "search google for", "search google", "google pe search"):
+                if marker in query.lower():
+                    query = query.lower().replace(marker, "").strip(" :.,'\"")
+            return {
+                "intent_summary": f"Search Google for '{query}'",
+                "requires_confirmation": False,
+                "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "search_google", "parameters": {"query": query}, "description": f"Search Google for {query}"}],
+                "spoken_response": f"Searching Google for '{query}', Boss."
+            }
+
+        # 4. Specific Websites / Chrome / Browser
         if any(w in p for w in ("youtube", "google", "chatgpt", "github", "reddit", "twitter", "facebook", "instagram")):
             url = "https://www.google.com"
             site_name = "Google"
@@ -446,7 +485,181 @@ class ThinkerAgent(BaseAgent):
                     "spoken_response": "Capturing screenshot and saving to your folder, Boss."
                 }
 
-        # 10. Standard Applications
+        # 10. Master Volume & Audio Controls
+        if any(w in p for w in ("volume", "sound", "awaaz", "mute", "unmute")):
+            if "unmute" in p:
+                return {
+                    "intent_summary": "Unmute system audio",
+                    "requires_confirmation": False,
+                    "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "unmute_audio", "parameters": {}, "description": "Unmute audio"}],
+                    "spoken_response": "Unmuting audio, Boss."
+                }
+            if "mute" in p:
+                return {
+                    "intent_summary": "Mute system audio",
+                    "requires_confirmation": False,
+                    "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "mute_audio", "parameters": {}, "description": "Mute audio"}],
+                    "spoken_response": "Muting audio, Boss."
+                }
+            if any(w in p for w in ("up", "increase", "raise", "badhao", "jyada")):
+                return {
+                    "intent_summary": "Increase master volume",
+                    "requires_confirmation": False,
+                    "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "volume_up", "parameters": {"step": 10}, "description": "Volume up by 10%"}],
+                    "spoken_response": "Increasing volume, Boss."
+                }
+            if any(w in p for w in ("down", "decrease", "lower", "kam karo", "ghatao")):
+                return {
+                    "intent_summary": "Decrease master volume",
+                    "requires_confirmation": False,
+                    "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "volume_down", "parameters": {"step": 10}, "description": "Volume down by 10%"}],
+                    "spoken_response": "Lowering volume, Boss."
+                }
+            # Specific percentage: "set volume to 50%", "volume 70"
+            import re
+            vol_match = re.search(r'\b(\d{1,3})\s*(%|percent)?\b', p)
+            if vol_match:
+                target_pct = int(vol_match.group(1))
+                if 0 <= target_pct <= 100:
+                    return {
+                        "intent_summary": f"Set master volume to {target_pct}%",
+                        "requires_confirmation": False,
+                        "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "set_volume", "parameters": {"level": target_pct}, "description": f"Set volume to {target_pct}%"}],
+                        "spoken_response": f"Setting volume to {target_pct}%, Boss."
+                    }
+
+        # 11. Media Playback Controls
+        if any(w in p for w in ("music", "song", "media", "playback", "track", "gana")):
+            if any(w in p for w in ("pause", "stop", "rok do", "roko")):
+                return {
+                    "intent_summary": "Pause media playback",
+                    "requires_confirmation": False,
+                    "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "play_pause_media", "parameters": {}, "description": "Pause playback"}],
+                    "spoken_response": "Pausing playback, Boss."
+                }
+            if any(w in p for w in ("play", "resume", "chalao", "continue")):
+                return {
+                    "intent_summary": "Play or resume media playback",
+                    "requires_confirmation": False,
+                    "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "play_pause_media", "parameters": {}, "description": "Resume playback"}],
+                    "spoken_response": "Resuming playback, Boss."
+                }
+            if any(w in p for w in ("next", "skip", "agla")):
+                return {
+                    "intent_summary": "Skip to next media track",
+                    "requires_confirmation": False,
+                    "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "next_track", "parameters": {}, "description": "Next track"}],
+                    "spoken_response": "Skipping to next track, Boss."
+                }
+            if any(w in p for w in ("prev", "previous", "pichla")):
+                return {
+                    "intent_summary": "Rewind to previous media track",
+                    "requires_confirmation": False,
+                    "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "prev_track", "parameters": {}, "description": "Previous track"}],
+                    "spoken_response": "Playing previous track, Boss."
+                }
+
+        # 12. System Power & Desktop Controls
+        if ("lock" in p and any(w in p for w in ("pc", "laptop", "workstation", "screen", "computer", "system", "windows"))) or p.strip() in ("lock", "lock it", "lock now"):
+            return {
+                "intent_summary": "Lock workstation",
+                "requires_confirmation": False,
+                "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "lock_pc", "parameters": {}, "description": "Lock Windows session"}],
+                "spoken_response": "Locking workstation now, Boss."
+            }
+        if any(w in p for w in ("show desktop", "minimize all", "desktop dikhao")):
+            return {
+                "intent_summary": "Show desktop and minimize all windows",
+                "requires_confirmation": False,
+                "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "show_desktop", "parameters": {}, "description": "Minimize all windows"}],
+                "spoken_response": "Showing your desktop, Boss."
+            }
+        if any(w in p for w in ("maximize window", "badi karo")):
+            return {
+                "intent_summary": "Maximize active window",
+                "requires_confirmation": False,
+                "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "maximize_window", "parameters": {}, "description": "Maximize active window"}],
+                "spoken_response": "Window maximized, Boss."
+            }
+
+        # 13. Clipboard Operations
+        if any(w in p for w in ("clipboard",)):
+            if any(w in p for w in ("read", "what", "check", "kya", "batao")):
+                return {
+                    "intent_summary": "Read clipboard contents",
+                    "requires_confirmation": False,
+                    "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "read_clipboard", "parameters": {}, "description": "Read clipboard contents"}],
+                    "spoken_response": "Accessing your clipboard now, Boss."
+                }
+            if any(w in p for w in ("copy",)):
+                copy_text = p.split("copy", 1)[1].replace("to clipboard", "").strip(" :.,'\"")
+                return {
+                    "intent_summary": "Copy text to clipboard",
+                    "requires_confirmation": False,
+                    "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "copy_clipboard", "parameters": {"text": copy_text}, "description": "Copy text to clipboard"}],
+                    "spoken_response": "Copied text to clipboard, Boss."
+                }
+
+        # 14. Browser Search & Tab Controls
+        if any(w in p for w in ("youtube",)) and any(w in p for w in ("search", "play", "find", "dhundo", "chalao")):
+            query = user_prompt
+            for marker in ("search youtube for", "play", "search for", "search", "youtube on", "on youtube"):
+                if marker in query.lower():
+                    query = query.lower().replace(marker, "").replace("youtube", "").strip(" :.,'\"")
+            return {
+                "intent_summary": f"Search YouTube for '{query}'",
+                "requires_confirmation": False,
+                "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "search_youtube", "parameters": {"query": query}, "description": f"Search YouTube for {query}"}],
+                "spoken_response": f"Searching YouTube for '{query}', Boss."
+            }
+        if any(w in p for w in ("google search", "search google", "google pe search")):
+            query = user_prompt
+            for marker in ("google search for", "google search", "search google for", "search google", "google pe search"):
+                if marker in query.lower():
+                    query = query.lower().replace(marker, "").strip(" :.,'\"")
+            return {
+                "intent_summary": f"Search Google for '{query}'",
+                "requires_confirmation": False,
+                "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "search_google", "parameters": {"query": query}, "description": f"Search Google for {query}"}],
+                "spoken_response": f"Searching Google for '{query}', Boss."
+            }
+        if any(w in p for w in ("new tab", "open new tab", "naya tab")):
+            return {
+                "intent_summary": "Open new browser tab",
+                "requires_confirmation": False,
+                "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "new_tab", "parameters": {}, "description": "Open new tab"}],
+                "spoken_response": "Opening new tab, Boss."
+            }
+        if any(w in p for w in ("reload tab", "refresh tab", "reload page", "refresh page")):
+            return {
+                "intent_summary": "Reload active page",
+                "requires_confirmation": False,
+                "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "reload_tab", "parameters": {}, "description": "Reload page"}],
+                "spoken_response": "Reloading page, Boss."
+            }
+        if any(w in p for w in ("switch tab", "next tab", "tab change karo")):
+            return {
+                "intent_summary": "Switch browser tab",
+                "requires_confirmation": False,
+                "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "switch_tab", "parameters": {}, "description": "Switch tab"}],
+                "spoken_response": "Switching tab, Boss."
+            }
+
+        # 15. Universal Installed Application Opener (Fuzzy Matching on User's System)
+        if any(p.startswith(verb + " ") for verb in ("open", "launch", "start", "run", "kholo", "chalao")):
+            from tools.app_control import app_tools
+            cleaned_app = app_tools._clean_app_name(p)
+            # Verify if shortcut or exe exists on this PC
+            found_shortcut = app_tools._find_in_start_menu(cleaned_app) or app_tools._find_in_windows_apps(cleaned_app)
+            if found_shortcut:
+                return {
+                    "intent_summary": f"Launch {cleaned_app.title()}",
+                    "requires_confirmation": False,
+                    "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "open_app", "parameters": {"app_name": cleaned_app}, "description": f"Launch {cleaned_app}"}],
+                    "spoken_response": f"Launching {cleaned_app.title()} now, Boss."
+                }
+
+        # 16. Standard Applications
         if "notepad" in p:
             return {
                 "intent_summary": "Open Notepad",

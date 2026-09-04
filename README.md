@@ -89,22 +89,42 @@ Ultron grants you full system power without risking accidental damage:
 ## 🎙️ Spoken & Written Commands
 
 Ultron understands spoken Hindi and English, and **always responds in 100% clean, crisp English addressing you as "Boss"**:
-- **App Control**:
-  - `"Hey Ultron, open Spotify"` / `"Spotify kholo"`
-  - `"Spotify band karo"` / `"Close Spotify"`
-  - `"Open Proton VPN"` / `"Proton VPN kholo"`
-  - `"Close File Explorer"` / `"File Explorer band karo"` *(closes open folder windows safely without terminating Windows desktop shell)*
-- **Window & Tab Management**:
+- **System Audio & Master Volume Control**:
+  - `"Set volume to 50%"` / `"Volume 60 percent karo"` / `"Volume 30"`
+  - `"Volume up"` / `"Awaaz badhao"`
+  - `"Volume down"` / `"Awaaz kam karo"`
+  - `"Mute audio"` / `"Unmute"`
+- **Media Playback Controls**:
+  - `"Pause music"` / `"Play music"` / `"Song pause karo"`
+  - `"Next track"` / `"Skip song"`
+  - `"Previous track"` / `"Pichla song chalao"`
+- **System Power & Window Management**:
+  - `"Lock my PC"` / `"Lock laptop"` *(locks Windows session instantly)*
+  - `"Show desktop"` / `"Minimize all"` *(sends Win+D)*
+  - `"Maximize window"` / `"Minimize window"`
   - `"Close this tab"` / `"Tab band karo"` *(sends Ctrl+W)*
   - `"Close this window"` / `"Window band karo"` *(sends Alt+F4)*
+- **Universal Application Launching**:
+  - `"Open Spotify"` / `"Spotify kholo"`
+  - `"Open Proton VPN"` / `"Proton VPN kholo"`
+  - `"Open Discord"`, `"Open Steam"`, `"Open VLC"`, `"Open WhatsApp"` *(scans all installed apps dynamically!)*
+  - `"Close File Explorer"` / `"File Explorer band karo"` *(closes folder windows safely without terminating Windows desktop shell)*
+- **Browser Navigation & YouTube Automation**:
+  - `"Search YouTube for Hans Zimmer Interstellar"`
+  - `"Google search quantum computing 2026"`
+  - `"Open new tab"` / `"Reload page"` / `"Switch tab"`
+- **Clipboard Intelligence**:
+  - `"Read my clipboard"` / `"What is in my clipboard?"`
+  - `"Copy Hello World to clipboard"`
+- **Compound Multi-Step Workflows**:
+  - `"Make a google document on AI in 2026, then make a folder called Voice model testing and move the doc inside, and then open Spotify"`
+  - *Decomposes compound tasks into sequential steps and executes them smoothly with verbal progress!*
 - **Interactive 4K Wallpaper Selection**:
   - `"Change wallpaper to nature"` / `"Wallpaper change karo"`
   - *Pops up a futuristic 5-card 4K preview gallery window directly on your screen with titles, descriptions, and numbers so you can see them visually and pick via voice or click!*
 - **Screenshot & Media Organization**:
   - `"Take a screenshot and save it to Screenshots"`
   - `"Organize screenshots in Screenshots folder"` *(sorts and sequentially renames them to `Screenshot_001.png`, `Screenshot_002.png`, etc.)*
-- **Browser Automation**: `"Open Chrome and go to chatgpt.com"`
-- **File & Folder Operations**: `"Create a new folder called Voice model testing on Desktop"`
 - **System Audit**: Type `logs` to see the live SQLite table of every action Ultron performed.
 
 ---
