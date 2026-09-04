@@ -9,4 +9,4 @@ powershell -Command "Get-CimInstance Win32_Process | Where-Object { $_.CommandLi
 echo.
 echo [SUCCESS] Ultron has been completely shut down!
 echo.
-timeout /t 2 >nul
+ping 127.0.0.1 -n 2 >nul

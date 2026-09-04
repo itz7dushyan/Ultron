@@ -21,7 +21,7 @@ class AudioEngine:
 
     def __init__(self):
         self.tts_voice = config.TTS_VOICE
-        self.tts_rate = config.TTS_RATE
+        self.tts_rate = "+8%"
         self.tts_pitch = getattr(config, "TTS_PITCH", "-25Hz")
         self.tts_volume = config.TTS_VOLUME
         self.use_filter = getattr(config, "TTS_CYBERNETIC_FILTER", True)
@@ -124,10 +124,15 @@ class AudioEngine:
         self._notify_state(True)
         mp3_path = CACHE_DIR / "ultron_speech.mp3"
         
+        # Clean text punctuation so TTS doesn't introduce awkward multi-second gaps
+        clean_text = text.replace("...", ". ").replace("—", ", ").replace("--", ", ")
+        import re
+        clean_text = re.sub(r'\s+', ' ', clean_text).strip()
+
         try:
             import edge_tts
             communicate = edge_tts.Communicate(
-                text=text,
+                text=clean_text,
                 voice=self.tts_voice,
                 rate=self.tts_rate,
                 pitch=self.tts_pitch,

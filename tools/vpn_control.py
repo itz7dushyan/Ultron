@@ -30,14 +30,23 @@ class VPNTools:
         state_manager.record_action("VPNTools", "CONNECT_VPN_REQUEST", country_or_server)
 
         try:
-            # 1. ProtonVPN CLI
-            if "proton" in vpn_type:
+            # 1. ProtonVPN (CLI or Official Launcher)
+            if "proton" in clean_target or "proton" in vpn_type:
+                launcher = Path("C:\\Program Files\\Proton\\VPN\\ProtonVPN.Launcher.exe")
+                if launcher.exists():
+                    subprocess.Popen([str(launcher)], shell=False)
+                    state_manager.record_action("VPNTools", "LAUNCH_PROTONVPN", str(launcher), status="success")
+                    return {"success": True, "provider": "ProtonVPN", "message": "Launched Proton VPN application, Boss."}
+
                 code = self.COUNTRY_CODES.get(clean_target, clean_target.upper())
                 cmd = ["protonvpn-cli", "c", "--cc", code]
-                res = subprocess.run(cmd, capture_output=True, text=True, timeout=20)
-                success = res.returncode == 0
-                state_manager.record_action("VPNTools", "CONNECT_PROTONVPN", code, status="success" if success else "failed")
-                return {"success": success, "provider": "ProtonVPN", "output": res.stdout or res.stderr}
+                try:
+                    res = subprocess.run(cmd, capture_output=True, text=True, timeout=20)
+                    success = res.returncode == 0
+                    state_manager.record_action("VPNTools", "CONNECT_PROTONVPN", code, status="success" if success else "failed")
+                    return {"success": success, "provider": "ProtonVPN", "output": res.stdout or res.stderr}
+                except Exception:
+                    pass
 
             # 2. NordVPN CLI
             elif "nord" in vpn_type:

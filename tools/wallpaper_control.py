@@ -297,6 +297,12 @@ class WallpaperControl:
 
     def apply_wallpaper_url(self, name: str, url: str, theme: str = "custom") -> Dict[str, Any]:
         """Downloads and applies a specific wallpaper URL directly."""
+        try:
+            from tools.wallpaper_viewer import wallpaper_viewer
+            wallpaper_viewer.close()
+        except Exception:
+            pass
+
         safe_name = "".join(c for c in name if c.isalnum() or c in (" ", "_", "-")).strip().replace(" ", "_")
         target_file = WALLPAPERS_DIR / f"{theme}_{safe_name}.jpg"
 
@@ -312,6 +318,7 @@ class WallpaperControl:
             "theme": theme,
             "name": name,
             "file_path": str(target_file),
+            "spoken_response": f"Applied the 4K '{name}' wallpaper to your desktop, Boss.",
             "message": f"Successfully applied 4K '{name}' wallpaper to your desktop, Boss."
         }
 
@@ -355,13 +362,20 @@ class WallpaperControl:
             opt = random.choice(options)
             return self.apply_wallpaper_url(opt["name"], opt["url"], matched_category)
 
-        # Interactive options return: Ultron will speak the curated options to the user
-        opt_names = [f"{o['id']}: {o['name']}" for o in options]
+        # Launch visual floating 4K Wallpaper Preview Gallery on screen
+        try:
+            from tools.wallpaper_viewer import wallpaper_viewer
+            wallpaper_viewer.show(
+                matched_category,
+                options,
+                on_select=lambda chosen: self.apply_wallpaper_url(chosen["name"], chosen["url"], matched_category)
+            )
+        except Exception:
+            pass
+
         spoken = (
-            f"Boss, maine {matched_category.title()} category se 5 4K options ready kiye hain: "
-            f"1 - {options[0]['name']}, 2 - {options[1]['name']}, 3 - {options[2]['name']}, "
-            f"4 - {options[3]['name']}, aur 5 - {options[4]['name']}. "
-            f"Aap kaunsa lagana chahenge, ya koi specific style bataiye?"
+            f"Boss, I have displayed 5 curated 4K {matched_category} wallpapers on your screen. "
+            f"You can choose one by voice, or click to apply."
         )
 
         return {
@@ -370,7 +384,7 @@ class WallpaperControl:
             "theme": matched_category,
             "options": options,
             "spoken_response": spoken,
-            "message": f"Presented 5 {matched_category} wallpaper options: {', '.join(opt_names)}"
+            "message": f"Displayed 5 {matched_category} wallpaper cards on screen for Boss."
         }
 
 wallpaper_control = WallpaperControl()

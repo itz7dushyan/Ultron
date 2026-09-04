@@ -13,6 +13,7 @@ from tools.vision_control import vision_control
 from tools.memory_bank import memory_bank
 from tools.doc_writer import doc_writer
 from tools.wallpaper_control import wallpaper_control
+from tools.media_organizer import media_organizer
 
 class ExecutorAgent(BaseAgent):
     """
@@ -139,6 +140,20 @@ class ExecutorAgent(BaseAgent):
                 path = parameters.get("path") or parameters.get("image_path")
                 choice = parameters.get("option_choice") or parameters.get("choice")
                 return wallpaper_control.change_wallpaper(theme=theme, custom_path=path, option_choice=choice)
+
+            elif action_clean in ("capture_screenshot", "save_screenshot", "take_screenshot"):
+                folder = parameters.get("folder") or parameters.get("target_folder")
+                return media_organizer.take_screenshot(folder)
+
+            elif action_clean in ("organize_screenshots", "rename_screenshots", "sort_screenshots"):
+                folder = parameters.get("folder") or parameters.get("path")
+                return media_organizer.organize_screenshots(folder)
+
+            elif action_clean in ("close_tab", "close_current_tab"):
+                return app_tools.close_active_tab()
+
+            elif action_clean in ("close_window", "close_active_window"):
+                return app_tools.close_active_window()
 
             elif action_clean == "echo":
                 return {"success": True, "message": parameters.get("message", "")}

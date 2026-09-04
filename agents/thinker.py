@@ -21,9 +21,10 @@ class ThinkerAgent(BaseAgent):
         system_prompt = (
             "You are the Thinker Agent of Ultron, a high-level cognitive planner and autonomous desktop assistant on Windows 11.\n"
             "Persona Guidelines:\n"
-            "- ALWAYS address the user as 'Boss' (or 'बॉस' in Hindi). NEVER use 'Sir'.\n"
-            "- Ultron is powerful, sharp, cinematic, and deeply loyal to the Boss.\n"
-            "- Ultron is 100% bilingual: naturally understand and respond in English, Hindi, or smooth conversational Hinglish depending on how the Boss speaks.\n"
+            "- ALWAYS speak and respond in 100% fluent, crisp, cinematic English. NEVER speak in Hindi or broken Hinglish.\n"
+            "- Ultron understands Hindi and Hinglish commands from the Boss with 100% accuracy, but ALWAYS responds in sleek, confident English.\n"
+            "- ALWAYS address the user as 'Boss'. NEVER use 'Sir'.\n"
+            "- If an action cannot be completed or is unrecognized, directly and honestly state: 'I am unable to perform that action, Boss.' Never give vague acknowledgments.\n"
             "- Always keep spoken responses confident, dynamic, concise, and focused on executing the Boss's commands.\n\n"
             "Available tools across agents:\n"
             "- AppControl: open_app, close_app\n"
@@ -252,10 +253,8 @@ class ThinkerAgent(BaseAgent):
 
             # Otherwise, present the 5 curated options smart & interactively
             spoken = (
-                f"Boss, maine {theme.title()} category se 5 4K options pick kiye hain: "
-                f"1 - {options[0]['name']}, 2 - {options[1]['name']}, 3 - {options[2]['name']}, "
-                f"4 - {options[3]['name']}, aur 5 - {options[4]['name']}. "
-                f"Inme se kaunsa pasand hai, ya specific vibe bataiye?"
+                f"Boss, I have displayed 5 curated 4K {theme} wallpapers on your screen. "
+                f"You can choose by voice, or click any card to apply."
             )
             return {
                 "intent_summary": f"Curate 5 4K {theme} wallpaper options for Boss",
@@ -330,31 +329,137 @@ class ThinkerAgent(BaseAgent):
                 "spoken_response": "Accessing hardware telemetry now."
             }
 
-        # 4. Desktop Screen Vision / Screenshot
-        if any(k in p for k in ("screenshot", "screen capture", "look at my screen", "see my screen")):
+        # 4. Desktop Screen Vision & Analysis
+        if any(k in p for k in ("look at my screen", "see my screen", "inspect screen", "what is on my screen", "read screen")):
             return {
                 "intent_summary": "Capture and analyze desktop screen",
                 "requires_confirmation": False,
                 "steps": [
                     {"step_id": 1, "assigned_agent": "Executor", "action": "screenshot", "parameters": {}, "description": "Capture screen"}
                 ],
-                "spoken_response": "Capturing visual telemetry from your desktop."
+                "spoken_response": "Analyzing visual telemetry from your desktop, Boss."
             }
 
-        # 5. Standard Applications
+        # 5. Application and Tab / Window Closing (English and Hindi phrasing)
+        if any(w in p for w in ("close", "band kar", "band karo", "kill", "terminate", "exit", "quit")):
+            if any(w in p for w in ("tab", "current tab", "this tab", "browser tab")):
+                return {
+                    "intent_summary": "Close active browser tab",
+                    "requires_confirmation": False,
+                    "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "close_tab", "parameters": {}, "description": "Close active tab"}],
+                    "spoken_response": "Closing current tab, Boss."
+                }
+            if any(w in p for w in ("window", "active window", "this window")):
+                return {
+                    "intent_summary": "Close active window",
+                    "requires_confirmation": False,
+                    "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "close_window", "parameters": {}, "description": "Close active window"}],
+                    "spoken_response": "Closing active window, Boss."
+                }
+            if any(w in p for w in ("file explorer", "explorer", "folder", "files")):
+                return {
+                    "intent_summary": "Close File Explorer windows",
+                    "requires_confirmation": False,
+                    "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "close_app", "parameters": {"app_name": "file explorer"}, "description": "Close File Explorer windows"}],
+                    "spoken_response": "Closing open File Explorer windows, Boss."
+                }
+            if "spotify" in p:
+                return {
+                    "intent_summary": "Close Spotify",
+                    "requires_confirmation": False,
+                    "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "close_app", "parameters": {"app_name": "spotify"}, "description": "Close Spotify"}],
+                    "spoken_response": "Closing Spotify, Boss."
+                }
+            if "proton" in p:
+                return {
+                    "intent_summary": "Close Proton VPN",
+                    "requires_confirmation": False,
+                    "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "close_app", "parameters": {"app_name": "proton"}, "description": "Close Proton VPN"}],
+                    "spoken_response": "Closing Proton VPN, Boss."
+                }
+            if "chrome" in p:
+                return {
+                    "intent_summary": "Close Google Chrome",
+                    "requires_confirmation": False,
+                    "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "close_app", "parameters": {"app_name": "chrome"}, "description": "Close Google Chrome"}],
+                    "spoken_response": "Closing Google Chrome, Boss."
+                }
+            if "notepad" in p:
+                return {
+                    "intent_summary": "Close Notepad",
+                    "requires_confirmation": False,
+                    "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "close_app", "parameters": {"app_name": "notepad"}, "description": "Close Notepad"}],
+                    "spoken_response": "Closing Notepad, Boss."
+                }
+            if any(w in p for w in ("calculator", "calc")):
+                return {
+                    "intent_summary": "Close Calculator",
+                    "requires_confirmation": False,
+                    "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "close_app", "parameters": {"app_name": "calc"}, "description": "Close Calculator"}],
+                    "spoken_response": "Closing Calculator, Boss."
+                }
+
+        # 6. Spotify Music (Opening / Running)
+        if "spotify" in p:
+            return {
+                "intent_summary": "Launch Spotify music application",
+                "requires_confirmation": False,
+                "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "open_app", "parameters": {"app_name": "spotify"}, "description": "Launch Spotify"}],
+                "spoken_response": "Launching Spotify now, Boss."
+            }
+
+        # 7. Proton VPN / VPN Connection
+        if "proton" in p or ("vpn" in p and any(w in p for w in ("connect", "open", "launch", "kholo", "chalao"))):
+            return {
+                "intent_summary": "Launch and connect Proton VPN",
+                "requires_confirmation": False,
+                "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "connect_vpn", "parameters": {"country": "proton"}, "description": "Launch Proton VPN"}],
+                "spoken_response": "Launching Proton VPN application now, Boss."
+            }
+
+        # 8. File Explorer (Opening)
+        if any(w in p for w in ("file explorer", "explorer", "open files", "my files", "files kholo", "explorer kholo")):
+            return {
+                "intent_summary": "Open File Explorer",
+                "requires_confirmation": False,
+                "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "open_app", "parameters": {"app_name": "file explorer"}, "description": "Launch File Explorer"}],
+                "spoken_response": "Opening File Explorer now, Boss."
+            }
+
+        # 9. Screenshots Capture & Sequential Numbered Organization
+        if "screenshot" in p:
+            if any(w in p for w in ("organize", "sort", "rename", "number", "numbering")):
+                return {
+                    "intent_summary": "Organize screenshots by sequential numbers",
+                    "requires_confirmation": False,
+                    "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "organize_screenshots", "parameters": {}, "description": "Sort and rename screenshots sequentially"}],
+                    "spoken_response": "Organizing your screenshots sequentially by number now, Boss."
+                }
+            elif any(w in p for w in ("take", "capture", "le", "save", "kar")):
+                target_folder = None
+                if "folder" in p:
+                    target_folder = "Screenshots"
+                return {
+                    "intent_summary": "Capture desktop screenshot and save to folder",
+                    "requires_confirmation": False,
+                    "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "capture_screenshot", "parameters": {"folder": target_folder}, "description": "Capture screenshot"}],
+                    "spoken_response": "Capturing screenshot and saving to your folder, Boss."
+                }
+
+        # 10. Standard Applications
         if "notepad" in p:
             return {
                 "intent_summary": "Open Notepad",
                 "requires_confirmation": False,
                 "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "open_app", "parameters": {"app_name": "notepad"}, "description": "Open Notepad"}],
-                "spoken_response": "Opening Notepad."
+                "spoken_response": "Opening Notepad, Boss."
             }
-        if "calculator" in p:
+        if "calculator" in p or "calc" in p:
             return {
                 "intent_summary": "Open Calculator",
                 "requires_confirmation": False,
                 "steps": [{"step_id": 1, "assigned_agent": "Executor", "action": "open_app", "parameters": {"app_name": "calc"}, "description": "Open Calculator"}],
-                "spoken_response": "Opening Calculator."
+                "spoken_response": "Opening Calculator, Boss."
             }
 
         return None
@@ -370,7 +475,7 @@ class ThinkerAgent(BaseAgent):
                 "steps": [
                     {"step_id": 1, "assigned_agent": "Executor", "action": "open_url", "parameters": {"url": url}, "description": f"Open {url}"}
                 ],
-                "spoken_response": f"Opening your browser to {url}."
+                "spoken_response": f"Opening your browser to {url}, Boss."
             }
         elif "vpn" in prompt_lower:
             country = "Germany" if "germany" in prompt_lower else "United States"
@@ -380,7 +485,7 @@ class ThinkerAgent(BaseAgent):
                 "steps": [
                     {"step_id": 1, "assigned_agent": "Executor", "action": "connect_vpn", "parameters": {"country": country}, "description": f"Connect VPN to {country}"}
                 ],
-                "spoken_response": f"Connecting your VPN to {country} now."
+                "spoken_response": f"Connecting your VPN to {country} now, Boss."
             }
         elif "folder" in prompt_lower or "desktop" in prompt_lower or "project" in prompt_lower:
             return {
@@ -390,16 +495,16 @@ class ThinkerAgent(BaseAgent):
                     {"step_id": 1, "assigned_agent": "Executor", "action": "create_directory", "parameters": {"path": "Desktop/UltronProject"}, "description": "Create project directory"},
                     {"step_id": 2, "assigned_agent": "Coder", "action": "code_project", "parameters": {"project_name": "UltronProject", "requirements": user_prompt}, "description": "Generate project code"}
                 ],
-                "spoken_response": "Creating the project workspace and writing the code now."
+                "spoken_response": "Creating the project workspace and writing the code now, Boss."
             }
         else:
             return {
-                "intent_summary": "Standing by for user command",
+                "intent_summary": "Unrecognized task",
                 "requires_confirmation": False,
                 "steps": [
-                    {"step_id": 1, "assigned_agent": "Executor", "action": "echo", "parameters": {"message": user_prompt}, "description": "Standing by"}
+                    {"step_id": 1, "assigned_agent": "Executor", "action": "echo", "parameters": {"message": user_prompt}, "description": "Unrecognized task"}
                 ],
-                "spoken_response": "Acknowledged. Standing by for your next command, Boss."
+                "spoken_response": "I am unable to perform that action on your system right now, Boss."
             }
 
 thinker_agent = ThinkerAgent()

@@ -88,16 +88,24 @@ Ultron grants you full system power without risking accidental damage:
 
 ## 🎙️ Spoken & Written Commands
 
-You can speak or type commands like:
-- **App Control**: `"Hey Ultron, open Chrome"` or `"Close Notepad"`
+Ultron understands spoken Hindi and English, and **always responds in 100% clean, crisp English addressing you as "Boss"**:
+- **App Control**:
+  - `"Hey Ultron, open Spotify"` / `"Spotify kholo"`
+  - `"Spotify band karo"` / `"Close Spotify"`
+  - `"Open Proton VPN"` / `"Proton VPN kholo"`
+  - `"Close File Explorer"` / `"File Explorer band karo"` *(closes open folder windows safely without terminating Windows desktop shell)*
+- **Window & Tab Management**:
+  - `"Close this tab"` / `"Tab band karo"` *(sends Ctrl+W)*
+  - `"Close this window"` / `"Window band karo"` *(sends Alt+F4)*
+- **Interactive 4K Wallpaper Selection**:
+  - `"Change wallpaper to nature"` / `"Wallpaper change karo"`
+  - *Pops up a futuristic 5-card 4K preview gallery window directly on your screen with titles, descriptions, and numbers so you can see them visually and pick via voice or click!*
+- **Screenshot & Media Organization**:
+  - `"Take a screenshot and save it to Screenshots"`
+  - `"Organize screenshots in Screenshots folder"` *(sorts and sequentially renames them to `Screenshot_001.png`, `Screenshot_002.png`, etc.)*
 - **Browser Automation**: `"Open Chrome and go to chatgpt.com"`
-- **VPN Control**: `"Connect my VPN to Germany"`
-- **File Management**: `"Create a new folder called ClientX on Desktop"`
-- **Project Workflows**: `"Build a simple landing page for a digital marketing agency"`
-  - *The Thinker plans the architecture.*
-  - *The Coder writes the HTML, CSS, and JS.*
-  - *The QA agent verifies syntax and validity.*
-- **System Audit**: Type `logs` to see the live table of every action Ultron performed.
+- **File & Folder Operations**: `"Create a new folder called Voice model testing on Desktop"`
+- **System Audit**: Type `logs` to see the live SQLite table of every action Ultron performed.
 
 ---
 

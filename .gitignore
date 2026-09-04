@@ -34,3 +34,6 @@ logs/
 .idea/
 *.swp
 *.swo
+
+# Temporary scratch tests
+scratch/

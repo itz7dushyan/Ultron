@@ -145,7 +145,7 @@ class UltronHudOverlay:
             )
             self._canvas.pack(fill="both", expand=True)
 
-            # Apply Windows click-through styles
+            # Apply Windows click-through styles & HWND_TOPMOST
             hwnd = ctypes.windll.user32.GetParent(self._root.winfo_id())
             if hwnd == 0:
                 hwnd = self._root.winfo_id()
@@ -155,6 +155,17 @@ class UltronHudOverlay:
                 GWL_EXSTYLE,
                 style | WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW
             )
+            # Assert TopMost and ShowWindow
+            HWND_TOPMOST = -1
+            SWP_NOMOVE = 0x0002
+            SWP_NOSIZE = 0x0001
+            SWP_SHOWWINDOW = 0x0040
+            ctypes.windll.user32.SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW)
+
+            # Start with an immediate wake flare so user sees Ultron has come alive
+            self.fade_alpha = 1.0
+            self.target_alpha = 1.0
+            self.last_active_time = time.time()
 
             # Initialize 80 glowing particles along screen borders
             self.particles = []

@@ -27,23 +27,33 @@ COMMON_APPS = {
     "settings": "ms-settings:",
     "microsoft store": "ms-windows-store:",
     "store": "ms-windows-store:",
-    "microsoft score": "ms-windows-store:",  # speech transcription phonetic variant
-    "clock": "ms-clock:",
-    "alarm": "ms-clock:",
-    "alarms": "ms-clock:",
-    "alarms & clock": "ms-clock:",
     "camera": "microsoft.windows.camera:",
     "photos": "ms-photos:",
     "vscode": "code.cmd",
     "code": "code.cmd",
     "spotify": "spotify.exe",
+    "proton": "ProtonVPN.Launcher.exe",
+    "proton vpn": "ProtonVPN.Launcher.exe",
+    "protonvpn": "ProtonVPN.Launcher.exe",
     "word": "winword.exe",
     "excel": "excel.exe",
     "powerpoint": "powerpnt.exe"
 }
 
+SPOTIFY_PATHS = [
+    Path(os.environ.get("LOCALAPPDATA", "")) / "Microsoft\\WindowsApps\\Spotify.exe",
+    Path(os.environ.get("APPDATA", "")) / "Spotify\\Spotify.exe",
+    "spotify:"
+]
+
+PROTON_PATHS = [
+    Path("C:\\Program Files\\Proton\\VPN\\ProtonVPN.Launcher.exe"),
+    Path("C:\\Program Files\\Proton\\VPN\\v4.4.1\\ProtonVPN.Client.exe"),
+    Path("C:\\Program Files\\Proton\\VPN\\v4.3.14\\ProtonVPN.Client.exe")
+]
+
 class AppTools:
-    """Windows Application Controller for opening and closing apps without screenshot delay."""
+    """Windows Application Controller for opening and closing apps without delay."""
 
     def _find_in_registry(self, app_name: str) -> Optional[str]:
         """Search Windows App Paths registry for the executable."""
@@ -83,39 +93,65 @@ class AppTools:
         Launches an application by name or common alias.
         """
         clean_name = app_name.strip().lower()
-        target = COMMON_APPS.get(clean_name, app_name)
 
         try:
-            # 1. Check if it's a protocol (e.g. ms-settings:)
+            # 1. Specialized: Spotify
+            if "spotify" in clean_name:
+                for candidate in SPOTIFY_PATHS:
+                    if isinstance(candidate, str) and candidate.startswith("spotify:"):
+                        os.startfile(candidate)
+                        state_manager.record_action("AppTools", "OPEN_APP", "spotify:", status="success")
+                        return {"success": True, "target": "spotify:", "message": "Launched Spotify, Boss."}
+                    elif isinstance(candidate, Path) and candidate.exists():
+                        subprocess.Popen([str(candidate)], shell=False)
+                        state_manager.record_action("AppTools", "OPEN_APP", str(candidate), status="success")
+                        return {"success": True, "target": str(candidate), "message": "Launched Spotify, Boss."}
+
+            # 2. Specialized: Proton VPN
+            if "proton" in clean_name:
+                for p_candidate in PROTON_PATHS:
+                    if p_candidate.exists():
+                        subprocess.Popen([str(p_candidate)], shell=False)
+                        state_manager.record_action("AppTools", "OPEN_APP", str(p_candidate), status="success")
+                        return {"success": True, "target": str(p_candidate), "message": "Launched Proton VPN, Boss."}
+
+            # 3. Specialized: File Explorer
+            if clean_name in ("file explorer", "explorer", "folder"):
+                subprocess.Popen(["explorer.exe"], shell=False)
+                state_manager.record_action("AppTools", "OPEN_APP", "explorer.exe", status="success")
+                return {"success": True, "target": "explorer.exe", "message": "Opened File Explorer, Boss."}
+
+            target = COMMON_APPS.get(clean_name, app_name)
+
+            # 4. Check if it's a protocol (e.g. ms-settings:)
             if ":" in target and not Path(target).is_absolute():
                 os.startfile(target)
                 state_manager.record_action("AppTools", "OPEN_APP", target, status="success")
-                return {"success": True, "target": target, "message": f"Opened {app_name}"}
+                return {"success": True, "target": target, "message": f"Opened {app_name}, Boss."}
 
-            # 2. Check if registered in Windows App Paths
+            # 5. Check if registered in Windows App Paths
             reg_path = self._find_in_registry(target)
             if reg_path:
                 subprocess.Popen([reg_path], shell=False)
                 state_manager.record_action("AppTools", "OPEN_APP", reg_path, status="success")
-                return {"success": True, "target": reg_path, "message": f"Launched {app_name}"}
+                return {"success": True, "target": reg_path, "message": f"Launched {app_name}, Boss."}
 
-            # 3. Check Start Menu shortcuts
+            # 6. Check Start Menu shortcuts
             shortcut = self._find_in_start_menu(clean_name)
             if shortcut:
                 os.startfile(str(shortcut))
                 state_manager.record_action("AppTools", "OPEN_APP", str(shortcut), status="success")
-                return {"success": True, "target": str(shortcut), "message": f"Launched shortcut for {app_name}"}
+                return {"success": True, "target": str(shortcut), "message": f"Launched {app_name}, Boss."}
 
-            # 4. Fallback: try direct startfile or shell launch
+            # 7. Fallback: try direct startfile or shell launch
             try:
                 os.startfile(target)
                 state_manager.record_action("AppTools", "OPEN_APP", target, status="success")
-                return {"success": True, "target": target, "message": f"Launched {app_name}"}
+                return {"success": True, "target": target, "message": f"Launched {app_name}, Boss."}
             except Exception:
-                # 5. Last fallback: powershell Start-Process
                 subprocess.Popen(["powershell", "-Command", f"Start-Process '{target}'"], shell=False)
                 state_manager.record_action("AppTools", "OPEN_APP", target, status="success")
-                return {"success": True, "target": target, "message": f"Triggered launch of {app_name}"}
+                return {"success": True, "target": target, "message": f"Triggered launch of {app_name}, Boss."}
 
         except Exception as e:
             state_manager.record_action("AppTools", "OPEN_APP", app_name, details=str(e), status="failed")
@@ -123,9 +159,48 @@ class AppTools:
 
     def close_app(self, app_name: str) -> Dict[str, Any]:
         """
-        Terminates running processes matching the given app name.
+        Terminates running processes or closes active windows matching app_name.
         """
         clean_name = app_name.strip().lower()
+
+        # 1. Close Active Tab (Ctrl+W)
+        if clean_name in ("tab", "current tab", "this tab", "browser tab", "active tab"):
+            return self.close_active_tab()
+
+        # 2. Close Active Window (Alt+F4)
+        if clean_name in ("window", "active window", "current window", "this window"):
+            return self.close_active_window()
+
+        # 3. Close File Explorer folder windows (without killing desktop shell!)
+        if clean_name in ("file explorer", "explorer", "folder windows", "folders", "explorer.exe"):
+            return self.close_file_explorer_windows()
+
+        # 4. Specialized: Close Proton VPN
+        if "proton" in clean_name:
+            terminated = []
+            for proc in psutil.process_iter(['pid', 'name']):
+                try:
+                    if "proton" in proc.info['name'].lower():
+                        proc.terminate()
+                        terminated.append(proc.info['pid'])
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
+            state_manager.record_action("AppTools", "CLOSE_APP", "ProtonVPN", status="success")
+            return {"success": True, "message": "Closed Proton VPN, Boss."}
+
+        # 5. Specialized: Close Spotify
+        if "spotify" in clean_name:
+            terminated = []
+            for proc in psutil.process_iter(['pid', 'name']):
+                try:
+                    if "spotify" in proc.info['name'].lower():
+                        proc.terminate()
+                        terminated.append(proc.info['pid'])
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
+            state_manager.record_action("AppTools", "CLOSE_APP", "Spotify", status="success")
+            return {"success": True, "message": "Closed Spotify, Boss."}
+
         target = COMMON_APPS.get(clean_name, clean_name)
         if not target.endswith(".exe"):
             target = f"{target}.exe"
@@ -143,11 +218,45 @@ class AppTools:
 
             if terminated_pids:
                 state_manager.record_action("AppTools", "CLOSE_APP", app_name, details={"pids": terminated_pids}, status="success")
-                return {"success": True, "message": f"Closed {app_name} (terminated {len(terminated_pids)} process instances)"}
+                return {"success": True, "message": f"Closed {app_name}, Boss."}
             else:
-                return {"success": False, "message": f"No running processes found matching {app_name}"}
+                return {"success": False, "message": f"No running process found for {app_name}, Boss."}
         except Exception as e:
             state_manager.record_action("AppTools", "CLOSE_APP", app_name, details=str(e), status="failed")
+            return {"success": False, "error": str(e)}
+
+    def close_active_tab(self) -> Dict[str, Any]:
+        """Closes the current active browser or editor tab using Ctrl+W."""
+        try:
+            import pyautogui
+            pyautogui.hotkey('ctrl', 'w')
+            state_manager.record_action("AppTools", "CLOSE_TAB", "active_tab", status="success")
+            return {"success": True, "message": "Closed current tab, Boss."}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def close_active_window(self) -> Dict[str, Any]:
+        """Closes the current active window using Alt+F4."""
+        try:
+            import pyautogui
+            pyautogui.hotkey('alt', 'f4')
+            state_manager.record_action("AppTools", "CLOSE_WINDOW", "active_window", status="success")
+            return {"success": True, "message": "Closed active window, Boss."}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def close_file_explorer_windows(self) -> Dict[str, Any]:
+        """Closes open File Explorer folder windows via Shell COM without terminating the Windows taskbar shell."""
+        try:
+            cmd = (
+                "powershell -Command "
+                "\"(New-Object -ComObject Shell.Application).Windows() | "
+                "Where-Object { $_.Name -like '*Explorer*' } | ForEach-Object { $_.Quit() }\""
+            )
+            subprocess.run(cmd, shell=True, timeout=5)
+            state_manager.record_action("AppTools", "CLOSE_APP", "File Explorer Windows", status="success")
+            return {"success": True, "message": "Closed open File Explorer windows, Boss."}
+        except Exception as e:
             return {"success": False, "error": str(e)}
 
     def list_running_apps(self) -> List[Dict[str, Any]]:
