@@ -46,9 +46,92 @@ class ExecutorAgent(BaseAgent):
                 return app_tools.close_app(app_name)
 
             # 2. Browser Navigation
+            elif action_clean in ("open_profile", "open_chrome_profile"):
+                profile = parameters.get("profile") or parameters.get("name") or "Profile 1"
+                url = parameters.get("url") or parameters.get("target") or "https://www.google.com"
+                return browser_tools.open_profile(profile, url)
+
             elif action_clean in ("open_url", "navigate", "browser"):
                 url = parameters.get("url") or parameters.get("target") or "https://google.com"
+                profile = parameters.get("profile")
+                if profile:
+                    return browser_tools.open_url_quick(url, profile=profile)
                 return browser_tools.open_url_quick(url)
+
+            # 2.5 Vision Grounding & Element Interaction
+            elif action_clean in ("locate_and_click", "click_element", "tap_element"):
+                target = parameters.get("target") or parameters.get("element") or ""
+                double = parameters.get("double_click", False)
+                right = parameters.get("right_click", False)
+                return vision_control.click_element(target, double_click=double, right_click=right)
+
+            # 2.6 Quality Critic & Autonomous SEO Engine
+            elif action_clean in ("evaluate_image", "critique_image"):
+                path = parameters.get("image_path") or parameters.get("path") or ""
+                intent = parameters.get("intent") or parameters.get("prompt") or ""
+                from agents.quality_critic import quality_critic
+                return quality_critic.evaluate_image(path, intent)
+
+            elif action_clean in ("evaluate_seo", "evaluate_seo_content", "critique_seo"):
+                title = parameters.get("page_title", "")
+                kw = parameters.get("focus_keyword", "")
+                m_title = parameters.get("meta_title", "")
+                m_desc = parameters.get("meta_description", "")
+                copy = parameters.get("page_copy", "")
+                from agents.quality_critic import quality_critic
+                return quality_critic.evaluate_seo_content(title, kw, m_title, m_desc, copy)
+
+            elif action_clean in ("generate_seo", "seo_generate", "generate_focus_keyword", "page_seo"):
+                import json
+                from agents.llm_client import UnifiedLLMClient
+                from agents.quality_critic import quality_critic
+                domain = parameters.get("domain") or "Risaladigitalmarketing.com"
+                page = parameters.get("page") or parameters.get("target") or "About Us"
+                agency_kb = memory_bank.get_agency_knowledge()
+                sys_p = (
+                    "You are Ultron's Elite SEO Architect for Risala Digital Marketing (Headless WordPress + Next.js).\n"
+                    f"Agency Architecture & Workflow Guidelines:\n{agency_kb}\n\n"
+                    "Generate a high-converting focus keyword, meta title (<60 chars), and meta description (140-155 chars) "
+                    "tailored for maximum RankMath/Yoast score and Dubai/UAE market intent.\n"
+                    "Respond ONLY with a JSON object:\n"
+                    "{\n"
+                    '  "domain": "...",\n'
+                    '  "page": "...",\n'
+                    '  "focus_keyword": "...",\n'
+                    '  "meta_title": "...",\n'
+                    '  "meta_description": "...",\n'
+                    '  "suggested_headings": ["H1: ...", "H2: ..."],\n'
+                    '  "content_strategy": "..."\n'
+                    "}"
+                )
+                user_p = f"Target Domain: {domain}\nPage: {page}"
+                client = UnifiedLLMClient()
+                raw = client.complete(sys_p, user_p, temperature=0.3, json_mode=True)
+                data = json.loads(raw)
+
+                # Discerning self-reflection loop: Evaluate through Quality Critic
+                eval_res = quality_critic.evaluate_seo_content(
+                    page_title=page,
+                    focus_keyword=data.get("focus_keyword", ""),
+                    meta_title=data.get("meta_title", ""),
+                    meta_description=data.get("meta_description", ""),
+                    page_copy=data.get("content_strategy", "")
+                )
+                data["critic_evaluation"] = eval_res
+                # If Critic detected flaws, automatically upgrade to the optimized version
+                if not eval_res.get("approved") and eval_res.get("optimized_meta_title"):
+                    data["meta_title"] = eval_res.get("optimized_meta_title")
+                    data["meta_description"] = eval_res.get("optimized_meta_description")
+                    data["focus_keyword"] = eval_res.get("optimized_focus_keyword", data.get("focus_keyword"))
+                    data["critic_optimized"] = True
+
+                score = eval_res.get("score", 9)
+                critique_note = eval_res.get("critique", "")
+                return {
+                    "success": True,
+                    "seo_data": data,
+                    "message": f"Generated and perfected SEO package for '{page}' on {domain} (Quality Score: {score}/10. {critique_note})"
+                }
 
             # 3. VPN Operations
             elif action_clean in ("connect_vpn", "vpn"):

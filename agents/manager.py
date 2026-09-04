@@ -92,23 +92,69 @@ class ManagerAgent(BaseAgent):
         }
 
     def _generate_final_response(self, user_command: str, plan: Dict[str, Any], step_results: List[Dict[str, Any]]) -> str:
-        """Produces a natural, concise spoken answer for the user."""
-        # If Thinker provided a great initial sentence and all went well
-        initial_spoken = plan.get("spoken_response")
-        
-        # Check for cancellations
+        """Dynamically formulates an intelligent, context-aware spoken response via frontier LLM."""
         cancelled = any(r.get("result", {}).get("cancelled") for r in step_results)
         if cancelled:
-            return "Operation was cancelled as requested."
+            return "Operation cancelled as requested, Boss."
 
         failures = [r for r in step_results if not r.get("result", {}).get("success", True)]
         if failures:
-            err = failures[0].get("result", {}).get("error", "an error")
-            return f"I encountered an issue: {err}."
+            err = failures[0].get("result", {}).get("error", "an unexpected error")
+            return f"Boss, I ran into an obstacle with that step: {err}."
 
+        if not step_results:
+            return plan.get("spoken_response", "Online and ready, Boss.")
+
+        # Dynamically generate contextual response based on what was actually accomplished
+        try:
+            from agents.llm_client import UnifiedLLMClient
+            
+            summary_of_actions = []
+            for item in step_results:
+                action_name = item.get("step", {}).get("action", "action")
+                desc = item.get("step", {}).get("description", "")
+                res_msg = item.get("result", {}).get("message", "completed")
+                summary_of_actions.append(f"- {action_name}: {desc} ({res_msg})")
+
+            sys_prompt = (
+                "You are Ultron, speaking directly to your Boss in 100% fluent, crisp, cinematic English.\n"
+                "Formulate a single concise, natural, dynamic spoken sentence summarizing what was accomplished.\n"
+                "Guidelines:\n"
+                "- Address the user as 'Boss'. Never use 'Sir'.\n"
+                "- NEVER use generic canned phrases like 'Done. I have executed your request.'\n"
+                "- Speak directly about the concrete actions performed and any strategic insights.\n"
+                "- Keep it under 25 words so it is punchy and conversational over voice TTS.\n"
+                "- Output ONLY the exact spoken sentence. Never output thinking processes or preambles."
+            )
+
+            user_prompt = (
+                f"Boss's Command: {user_command}\n"
+                f"Actions Accomplished:\n" + "\n".join(summary_of_actions)
+            )
+
+            client = UnifiedLLMClient()
+            response = client.complete(sys_prompt, user_prompt, temperature=0.7, max_tokens=150).strip()
+            if response and len(response) > 5:
+                import re
+                # Find any line specifically addressing Boss
+                boss_lines = [ln.strip(' "*\'') for ln in response.splitlines() if ln.strip(' "*\'').startswith("Boss")]
+                if boss_lines:
+                    tight_lines = [l for l in boss_lines if len(l.split()) <= 28]
+                    clean_resp = tight_lines[0] if tight_lines else boss_lines[-1]
+                else:
+                    lines = [ln.strip() for ln in response.splitlines() if ln.strip() and not ln.strip().startswith("<think") and not ln.strip().startswith("```") and not ln.strip().startswith("**") and not ln.strip().startswith("Here's")]
+                    clean_resp = lines[-1] if lines else response
+
+                clean_resp = re.sub(r'[^\x00-\x7F]+', '', clean_resp).strip('\'" ')
+                if clean_resp and len(clean_resp) > 5:
+                    return clean_resp
+        except Exception as e:
+            logger.debug(f"Dynamic response generation fallback: {e}")
+
+        initial_spoken = plan.get("spoken_response")
         if initial_spoken:
             return initial_spoken
 
-        return "Done. I have executed your request."
+        return "All requested tasks are executed and operational, Boss."
 
 manager_agent = ManagerAgent()

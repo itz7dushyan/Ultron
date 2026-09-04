@@ -28,13 +28,15 @@ class ThinkerAgent(BaseAgent):
             "- Always keep spoken responses confident, dynamic, concise, and focused on executing the Boss's commands.\n\n"
             "Available tools across agents:\n"
             "- AppControl: open_app, close_app\n"
-            "- BrowserControl: open_url, navigate, click, type_text\n"
+            "- BrowserControl: open_url, open_profile (parameters: {\"profile\": \"Profile 1\"|\"Default\", \"url\": \"...\"}), navigate, click, type_text\n"
+            "- VisionControl: analyze_screen, locate_and_click (parameters: {\"target\": \"UI button or label to visually ground and click\"})\n"
+            "- QualityCritic: evaluate_image (parameters: {\"image_path\": \"...\", \"intent\": \"...\"}), evaluate_seo (parameters: {\"page_title\": \"...\", \"focus_keyword\": \"...\", \"meta_title\": \"...\", \"meta_description\": \"...\"})\n"
+            "- AgencySEO: generate_seo (parameters: {\"domain\": \"risaladigitalmarketing.com\", \"page\": \"About Us\"})\n"
             "- FileOps: create_directory, write_file, read_file, move_file, delete_path, search_files\n"
             "- ShellControl: execute_command (PowerShell)\n"
             "- VPNControl: connect_vpn, disconnect_vpn\n"
             "- APIGateway: send_email, post_to_instagram, create_facebook_ad_campaign, make_call\n"
             "- SystemTelemetry: system_status, hardware_stats\n"
-            "- VisionControl: analyze_screen, screenshot\n"
             "- WallpaperControl: change_wallpaper (parameters: {\"theme\": \"ultron\"|\"cyberpunk\"|\"nature\"|\"space\"|\"dark\"|\"bing\"|\"random\", \"option_choice\": \"...\"})\n"
             "- Coder: generate_project_code, edit_code\n"
             "- QADebugger: verify_code, test_execution\n\n"
@@ -47,7 +49,7 @@ class ThinkerAgent(BaseAgent):
             '    {\n'
             '      "step_id": 1,\n'
             '      "assigned_agent": "Executor" or "Coder" or "QA",\n'
-            '      "action": "open_app" | "navigate" | "write_file" | "execute_command" | "connect_vpn" | "api_call" | "code_project",\n'
+            '      "action": "open_profile" | "open_url" | "locate_and_click" | "generate_seo" | "evaluate_image" | "open_app" | "write_file" | "execute_command",\n'
             '      "parameters": {"key": "value"},\n'
             '      "description": "Brief description of step"\n'
             '    }\n'
@@ -188,8 +190,8 @@ class ThinkerAgent(BaseAgent):
                 "spoken_response": spoken_msg
             }
 
-        # 2. Chrome Profile & Long-Term Memory Setting
-        if "personal profile" in p or "chrome profile" in p:
+        # 2. Chrome Profile & Long-Term Memory Setting (Explicit set/remember only)
+        if any(w in p for w in ("set personal profile", "save personal profile", "set chrome profile", "save chrome profile", "my personal profile is", "remember my profile")) or (("personal profile" in p or "chrome profile" in p) and any(w in p for w in ("set", "save", "remember", "default is", "preference"))):
             profile = "Default"
             for candidate in ("profile 1", "profile 10", "profile 12", "profile 13", "profile 4", "profile 5", "default"):
                 if candidate in p:
@@ -209,6 +211,91 @@ class ThinkerAgent(BaseAgent):
                 ],
                 "spoken_response": f"I have committed {profile} to memory as your personal Chrome profile."
             }
+
+        # 2.5 Agency Workflow, SEO, Hostinger & WordPress Operations
+        if any(w in p for w in ("hostinger", "wp admin", "wp-admin", "wordpress", "risaladigitalmarketing", "risala digital marketing")) or (any(w in p for w in ("seo", "focus keyword", "meta description", "meta title")) and any(w in p for w in ("generate", "create", "make", "page", "about us"))):
+            steps = []
+            domain = "Risaladigitalmarketing.com"
+            profile = "Profile 1"  # Agency profile
+
+            # Step A: Hostinger Dashboard
+            if "hostinger" in p:
+                steps.append({
+                    "step_id": len(steps) + 1,
+                    "assigned_agent": "Executor",
+                    "action": "open_profile",
+                    "parameters": {"profile": profile, "url": "https://hpanel.hostinger.com"},
+                    "description": "Open Hostinger hPanel in Risala Digital Marketing Chrome profile"
+                })
+
+            # Step B: WP Admin / WordPress
+            if any(w in p for w in ("wp admin", "wp-admin", "wordpress")):
+                if "hostinger" in p:
+                    steps.append({
+                        "step_id": len(steps) + 1,
+                        "assigned_agent": "Executor",
+                        "action": "locate_and_click",
+                        "parameters": {"target": "WP Admin"},
+                        "description": "Visually locate and click WP Admin button on Hostinger dashboard"
+                    })
+                else:
+                    steps.append({
+                        "step_id": len(steps) + 1,
+                        "assigned_agent": "Executor",
+                        "action": "open_profile",
+                        "parameters": {"profile": profile, "url": f"https://{domain.lower()}/wp-admin"},
+                        "description": f"Open WordPress WP-Admin for {domain} in Risala Digital Marketing profile"
+                    })
+
+            # Step C: SEO & Focus Keyword Generation for target page
+            if any(w in p for w in ("seo", "keyword", "description", "meta title", "focus keyword")):
+                target_page = "About Us"
+                if "about" in p:
+                    target_page = "About Us"
+                elif "home" in p:
+                    target_page = "Home"
+                elif "service" in p:
+                    target_page = "Services"
+                elif "contact" in p:
+                    target_page = "Contact Us"
+                elif "blog" in p:
+                    target_page = "Blog"
+
+                steps.append({
+                    "step_id": len(steps) + 1,
+                    "assigned_agent": "Executor",
+                    "action": "generate_seo",
+                    "parameters": {"domain": domain, "page": target_page},
+                    "description": f"Generate and self-evaluate focus keyword and meta tags for '{target_page}'"
+                })
+
+            if steps:
+                return {
+                    "intent_summary": f"Execute agency workflow for {domain}: Hostinger / WordPress / SEO",
+                    "requires_confirmation": False,
+                    "steps": steps,
+                    "spoken_response": f"Executing agency workflow for {domain} in your Risala Digital Marketing profile, Boss."
+                }
+
+        # 2.8 Visual Grounding Click Command
+        for click_pfx in ("tap on ", "click on ", "tap the ", "click the "):
+            if p.startswith(click_pfx):
+                target_elem = user_prompt[len(click_pfx):].strip(" .,?!")
+                if target_elem:
+                    return {
+                        "intent_summary": f"Visually locate and click '{target_elem}' on screen",
+                        "requires_confirmation": False,
+                        "steps": [
+                            {
+                                "step_id": 1,
+                                "assigned_agent": "Executor",
+                                "action": "locate_and_click",
+                                "parameters": {"target": target_elem},
+                                "description": f"Locate and click '{target_elem}' via Vision Control"
+                            }
+                        ],
+                        "spoken_response": f"Targeting and clicking '{target_elem}' on screen now, Boss."
+                    }
 
         # 3. Desktop Wallpaper Engine & Interactive Follow-up Choices
         from tools.wallpaper_control import wallpaper_control

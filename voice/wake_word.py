@@ -104,9 +104,9 @@ class WakeDetector:
                 self._recognizer.energy_threshold = 80
 
             self._recognizer.dynamic_energy_threshold = True
-            self._recognizer.pause_threshold = 0.85
-            self._recognizer.non_speaking_duration = 0.4
-            logger.info(f"Ultron Microphone calibrated (threshold={self._recognizer.energy_threshold:.1f}, pause_threshold=0.85s)")
+            self._recognizer.pause_threshold = 1.0  # Standby pause threshold
+            self._recognizer.non_speaking_duration = 0.5
+            logger.info(f"Ultron Microphone calibrated (threshold={self._recognizer.energy_threshold:.1f}, standby_pause=1.0s)")
         except Exception as e:
             logger.warning(f"Voice input initialization notice: {e}")
 
@@ -162,7 +162,14 @@ class WakeDetector:
         return any(k in cleaned for k in shutdown_phrases)
 
     def _transcribe_audio(self, audio_data) -> Optional[str]:
-        """Dual-engine STT: Groq Whisper (ultra-low latency & multilingual) with Google STT fallback."""
+        """Dual-engine STT: Groq Whisper Large v3 Turbo (ultra-low latency) with Google STT fallback."""
+        # Domain-specific prompt conditioning Whisper for technical and agency vocabulary
+        whisper_context = (
+            "Ultron, Risala Digital Marketing, Hostinger, WordPress, WP Admin, Yoast, RankMath, "
+            "Dubai, UAE, Headless CMS, Next.js, SEO, focus keyword, meta title, meta description, "
+            "About Us, Boss, Chrome, Spotify, Proton VPN, Profile 1, Default profile, volume, tab"
+        )
+
         # 1. Primary: Groq Whisper (whisper-large-v3-turbo)
         if config.GROQ_API_KEY:
             try:
@@ -175,7 +182,8 @@ class WakeDetector:
                 transcription = self._groq_client.audio.transcriptions.create(
                     file=("voice.wav", bio),
                     model="whisper-large-v3-turbo",
-                    prompt="Ultron, Spotify, Proton VPN, YouTube, File Explorer, Boss, Google Docs, volume, tab"
+                    prompt=whisper_context,
+                    temperature=0.0
                 )
                 if transcription and transcription.text:
                     result = transcription.text.strip()
@@ -190,14 +198,19 @@ class WakeDetector:
         except Exception:
             return None
 
-    def listen_single_phrase(self, timeout: int = 5, phrase_time_limit: int = 8) -> Optional[str]:
-        """Listens for a single speech phrase from the microphone."""
+    def listen_single_phrase(self, timeout: int = 5, phrase_time_limit: int = 8, pause_threshold: Optional[float] = None) -> Optional[str]:
+        """Listens for speech with dynamic pause threshold to prevent cutting off mid-thought."""
         if not self._recognizer or not self._microphone:
             self._init_audio()
             if not self._recognizer or not self._microphone:
                 return None
 
         import speech_recognition as sr
+        # Apply custom pause threshold if specified (e.g. 2.0s for long-form dictation)
+        old_pause = self._recognizer.pause_threshold
+        if pause_threshold is not None:
+            self._recognizer.pause_threshold = pause_threshold
+
         try:
             with self._microphone as source:
                 audio = self._recognizer.listen(source, timeout=timeout, phrase_time_limit=phrase_time_limit)
@@ -207,6 +220,9 @@ class WakeDetector:
         except Exception as e:
             logger.debug(f"Audio recognition note: {e}")
             return None
+        finally:
+            if pause_threshold is not None:
+                self._recognizer.pause_threshold = old_pause
 
     def start_background_listener(self, on_command_callback: Callable[[str], None], status_logger: Optional[Callable[[str], None]] = None):
         """
@@ -264,7 +280,18 @@ class WakeDetector:
                             status_logger("● [ON CALL] Listening for your command, Boss... (Say 'That's enough' to hang up)")
 
                         self._play_listen_chirp()
-                        phrase = self.listen_single_phrase(timeout=9, phrase_time_limit=22)
+                        # Long-form conversational listening: 2.2s pause threshold allows natural thinking pauses without cutoff
+                        phrase = self.listen_single_phrase(timeout=10, phrase_time_limit=65, pause_threshold=2.2)
+
+                        # Intelligent continuation check: If user paused on a conjunction or mid-sentence
+                        if phrase:
+                            cleaned_tail = phrase.rstrip(".?! ").lower().split()
+                            if cleaned_tail and cleaned_tail[-1] in ("and", "then", "so", "also", "after", "like", "with", "because", "or", "plus"):
+                                if status_logger:
+                                    status_logger(f"🎙️ Listening for continuation... ('{phrase}'...)")
+                                continuation = self.listen_single_phrase(timeout=3, phrase_time_limit=35, pause_threshold=2.0)
+                                if continuation:
+                                    phrase = f"{phrase.rstrip('. ')} {continuation}"
 
                         if phrase:
                             self.silence_turns = 0

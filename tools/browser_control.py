@@ -33,13 +33,41 @@ class BrowserTools:
                 return p
         return None
 
+    CHROME_PROFILES = {
+        "risala": "Profile 1",
+        "risala digital": "Profile 1",
+        "risala digital marketing": "Profile 1",
+        "agency": "Profile 1",
+        "work": "Profile 1",
+        "seo": "Profile 1",
+        "web": "Profile 1",
+        "digital": "Profile 1",
+        "itzdushyant": "Default",
+        "itz dushyant": "Default",
+        "dushyant": "Default",
+        "personal": "Default"
+    }
+
+    def resolve_profile(self, name_or_alias: Optional[str] = None) -> str:
+        """Resolves profile nickname to exact Chrome profile directory name."""
+        if not name_or_alias:
+            return "Profile 1"  # Default to Risala Digital Marketing
+        clean = name_or_alias.lower().strip()
+        for k, v in self.CHROME_PROFILES.items():
+            if k in clean:
+                return v
+        return "Profile 1"
+
+    def open_profile(self, profile_name: str, url: str = "https://www.google.com") -> Dict[str, Any]:
+        """Launches Chrome with the specified user profile (Risala Digital Marketing or itzdushyant)."""
+        target = self.resolve_profile(profile_name)
+        return self.open_url_quick(url, profile=target)
+
     def open_url_quick(self, url: str, profile: Optional[str] = None) -> Dict[str, Any]:
-        """Directly launches URL in personal Chrome profile or default browser."""
+        """Directly launches URL in specified Chrome profile (defaults to Risala Digital Marketing for agency/web tasks)."""
         clean_url = self._ensure_url(url)
         chrome_exe = self._get_chrome_exe()
-        
-        from shared_state.database import get_memory
-        target_profile = profile or get_memory("personal_chrome_profile") or "Default"
+        target_profile = self.resolve_profile(profile)
 
         try:
             if chrome_exe and chrome_exe.exists():

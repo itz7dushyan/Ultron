@@ -79,6 +79,17 @@ class MemoryBank:
         """Returns all persistent memories formatted for LLM context."""
         return get_all_memory()
 
+    def get_agency_knowledge(self) -> str:
+        """Loads institutional knowledge for Risala Digital Marketing and headless CMS workflows."""
+        from config import DATA_DIR
+        doc_path = DATA_DIR / "knowledge" / "agency_workflow.md"
+        if doc_path.exists():
+            try:
+                return doc_path.read_text(encoding="utf-8")
+            except Exception as e:
+                logger.debug(f"Knowledge read note: {e}")
+        return ""
+
     def set_personal_chrome_profile(self, profile_name_or_email: str) -> Dict[str, Any]:
         """Finds and saves the specified Chrome profile directory as the user's personal profile."""
         profiles = self.get_available_chrome_profiles()

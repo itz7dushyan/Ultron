@@ -81,13 +81,18 @@ class UnifiedLLMClient:
         self._active_provider = "unconfigured"
         logger.warning("No active LLM API key detected. Please configure GROQ_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, or GEMINI_API_KEY in .env.")
 
-    def complete(self, system_prompt: str, user_prompt: str, temperature: float = 0.2, json_mode: bool = False) -> str:
+    def complete(self, system_prompt: str, user_prompt: str, temperature: float = 0.2, json_mode: bool = False, max_tokens: Optional[int] = None) -> str:
         """
         Submits prompt to online LLM and returns text completion.
+        Routes json_mode directly to Gemini for deep reasoning and flawless schema adherence.
         """
         # Re-check in case .env was modified at runtime
         if self._active_provider == "unconfigured":
             self._init_provider()
+
+        # Prioritize Gemini for structured JSON mode
+        if json_mode and (self._is_valid_key(config.GEMINI_API_KEY) or self._is_valid_key(config.GEMINI_FALLBACK_API_KEY)):
+            return self._complete_gemini(system_prompt, user_prompt, temperature, json_mode=True)
 
         if self._active_provider == "groq":
             try:
@@ -97,15 +102,16 @@ class UnifiedLLMClient:
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": user_prompt}
                     ],
-                    "temperature": temperature
+                    "temperature": temperature,
+                    "max_tokens": max_tokens or 750
                 }
                 if json_mode:
                     kwargs["response_format"] = {"type": "json_object"}
                 resp = self._active_client.chat.completions.create(**kwargs)
                 return resp.choices[0].message.content or ""
             except Exception as e:
-                logger.error(f"Groq API call error: {e}. Falling back to offline response.")
-                return self._offline_fallback_response(system_prompt, user_prompt, json_mode)
+                logger.warning(f"Groq API note: {e}. Cascading immediately to Gemini 3.7 Flash.")
+                return self._complete_gemini(system_prompt, user_prompt, temperature, json_mode)
 
         elif self._active_provider == "openai":
             try:
@@ -122,8 +128,8 @@ class UnifiedLLMClient:
                 resp = self._active_client.chat.completions.create(**kwargs)
                 return resp.choices[0].message.content or ""
             except Exception as e:
-                logger.error(f"OpenAI API call error: {e}. Falling back to offline response.")
-                return self._offline_fallback_response(system_prompt, user_prompt, json_mode)
+                logger.warning(f"OpenAI note: {e}. Cascading immediately to Gemini 3.7 Flash.")
+                return self._complete_gemini(system_prompt, user_prompt, temperature, json_mode)
 
         elif self._active_provider == "anthropic":
             try:
@@ -136,62 +142,68 @@ class UnifiedLLMClient:
                 )
                 return resp.content[0].text
             except Exception as e:
-                logger.error(f"Anthropic API call error: {e}. Falling back to offline response.")
-                return self._offline_fallback_response(system_prompt, user_prompt, json_mode)
+                logger.warning(f"Anthropic note: {e}. Cascading to Gemini 3.7 Flash.")
+                return self._complete_gemini(system_prompt, user_prompt, temperature, json_mode)
 
         elif self._active_provider == "gemini":
-            generation_config = {"temperature": temperature}
-            if json_mode:
-                generation_config["response_mime_type"] = "application/json"
+            return self._complete_gemini(system_prompt, user_prompt, temperature, json_mode)
 
-            keys_to_try = [config.GEMINI_API_KEY]
-            if self._is_valid_key(config.GEMINI_FALLBACK_API_KEY) and config.GEMINI_FALLBACK_API_KEY not in keys_to_try:
-                keys_to_try.append(config.GEMINI_FALLBACK_API_KEY)
+        return self._offline_fallback_response(system_prompt, user_prompt, json_mode)
 
-            # Fast models prioritized for ultra-low latency
-            candidate_models = ["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"]
-            models_to_try = [config.GEMINI_MODEL]
-            for c in candidate_models:
-                if c not in models_to_try:
-                    models_to_try.append(c)
+    def _complete_gemini(self, system_prompt: str, user_prompt: str, temperature: float = 0.2, json_mode: bool = False) -> str:
+        """Executes completion via Google Gemini 3.7/3.6 Flash cascade."""
+        generation_config = {"temperature": temperature}
+        if json_mode:
+            generation_config["response_mime_type"] = "application/json"
 
-            if not hasattr(self, "_exhausted_models"):
-                self._exhausted_models = set()
+        keys_to_try = [config.GEMINI_API_KEY]
+        if self._is_valid_key(config.GEMINI_FALLBACK_API_KEY) and config.GEMINI_FALLBACK_API_KEY not in keys_to_try:
+            keys_to_try.append(config.GEMINI_FALLBACK_API_KEY)
 
-            active_models = [m for m in models_to_try if m not in self._exhausted_models]
-            if not active_models:
-                self._exhausted_models.clear()
-                active_models = models_to_try
+        # Active verified models prioritized for high rate-limit, low latency & deep reasoning
+        candidate_models = ["gemini-flash-latest", "gemini-flash-lite-latest", "gemini-2.5-flash-lite", "gemini-3.7-flash", "gemini-pro-latest"]
+        models_to_try = [config.GEMINI_MODEL]
+        for c in candidate_models:
+            if c not in models_to_try:
+                models_to_try.append(c)
 
-            import google.generativeai as genai
+        if not hasattr(self, "_exhausted_keys_models"):
+            self._exhausted_keys_models = set()
 
-            for k in keys_to_try:
+        import google.generativeai as genai
+
+        for k in keys_to_try:
+            try:
                 genai.configure(api_key=k)
-                for m_name in active_models:
-                    try:
-                        m_instance = genai.GenerativeModel(
-                            model_name=m_name,
-                            system_instruction=system_prompt,
-                            generation_config=generation_config
-                        )
-                        resp = m_instance.generate_content(user_prompt, request_options={"timeout": 8})
+            except Exception:
+                continue
+
+            for m_name in models_to_try:
+                if (k, m_name) in self._exhausted_keys_models:
+                    continue
+                try:
+                    m_instance = genai.GenerativeModel(
+                        model_name=m_name,
+                        system_instruction=system_prompt,
+                        generation_config=generation_config
+                    )
+                    resp = m_instance.generate_content(user_prompt, request_options={"timeout": 25})
+                    if resp and resp.text:
                         return resp.text
-                    except Exception as err:
-                        err_str = str(err)
-                        if "429" in err_str or "quota" in err_str.lower():
-                            self._exhausted_models.add(m_name)
-                            logger.warning(f"Model {m_name} quota reached. Auto-bypassing.")
-                            continue
-                        elif "404" in err_str or "not found" in err_str.lower():
-                            continue
-                        else:
-                            logger.warning(f"Gemini call error on {m_name}: {err_str[:120]}")
-                            continue
+                except Exception as err:
+                    err_str = str(err)
+                    if "429" in err_str or "quota" in err_str.lower():
+                        self._exhausted_keys_models.add((k, m_name))
+                        logger.warning(f"Key/model ({m_name}) quota notice. Cascading to next candidate.")
+                        continue
+                    elif "404" in err_str or "not found" in err_str.lower():
+                        self._exhausted_keys_models.add((k, m_name))
+                        continue
+                    else:
+                        logger.warning(f"Gemini call error on {m_name}: {err_str[:120]}")
+                        continue
 
-            logger.error("All Gemini API keys and cascade models exhausted. Falling back to offline response.")
-            return self._offline_fallback_response(system_prompt, user_prompt, json_mode)
-
-        # Offline Mock Fallback for local testing when no keys are configured yet
+        logger.error("All Gemini API keys and cascade models exhausted. Falling back to offline response.")
         return self._offline_fallback_response(system_prompt, user_prompt, json_mode)
 
     def _offline_fallback_response(self, system_prompt: str, user_prompt: str, json_mode: bool) -> str:
