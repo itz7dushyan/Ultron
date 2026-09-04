@@ -166,7 +166,7 @@ class WakeDetector:
         # Domain-specific prompt conditioning Whisper for technical and agency vocabulary
         whisper_context = (
             "Ultron, Risala Digital Marketing, Hostinger, WordPress, WP Admin, Yoast, RankMath, "
-            "Dubai, UAE, Headless CMS, Next.js, SEO, focus keyword, meta title, meta description, "
+            "India, Jodhpur, Rajasthan, Headless CMS, Next.js, SEO, focus keyword, meta title, meta description, "
             "About Us, Boss, Chrome, Spotify, Proton VPN, Profile 1, Default profile, volume, tab"
         )
 

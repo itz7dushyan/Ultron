@@ -277,25 +277,36 @@ class ThinkerAgent(BaseAgent):
                     "spoken_response": f"Executing agency workflow for {domain} in your Risala Digital Marketing profile, Boss."
                 }
 
-        # 2.8 Visual Grounding Click Command
-        for click_pfx in ("tap on ", "click on ", "tap the ", "click the "):
-            if p.startswith(click_pfx):
-                target_elem = user_prompt[len(click_pfx):].strip(" .,?!")
-                if target_elem:
-                    return {
-                        "intent_summary": f"Visually locate and click '{target_elem}' on screen",
-                        "requires_confirmation": False,
-                        "steps": [
-                            {
-                                "step_id": 1,
-                                "assigned_agent": "Executor",
-                                "action": "locate_and_click",
-                                "parameters": {"target": target_elem},
-                                "description": f"Locate and click '{target_elem}' via Vision Control"
-                            }
-                        ],
-                        "spoken_response": f"Targeting and clicking '{target_elem}' on screen now, Boss."
-                    }
+        # 2.8 Visual Grounding Click / Login Commands (e.g. 'login with Google here', 'tap on WP Admin')
+        if any(w in p for w in ("login with", "sign in with", "tap on", "click on", "tap the", "click the", "press the", "click ")):
+            for click_pfx in ("login with ", "sign in with ", "tap on ", "click on ", "tap the ", "click the ", "press ", "click "):
+                if click_pfx in p:
+                    sub = user_prompt[p.find(click_pfx) + len(click_pfx):].strip(" .,?!")
+                    # Clean auxiliary words
+                    for stopper in ("here", "now", "please", "button"):
+                        sub = sub.replace(stopper, "").strip(" .,?!")
+                    if not sub and ("login" in p or "sign in" in p):
+                        target_elem = "Sign in with Google"
+                    elif "google" in sub.lower():
+                        target_elem = "Sign in with Google"
+                    else:
+                        target_elem = sub.title()
+
+                    if target_elem:
+                        return {
+                            "intent_summary": f"Visually locate and click '{target_elem}' on screen",
+                            "requires_confirmation": False,
+                            "steps": [
+                                {
+                                    "step_id": 1,
+                                    "assigned_agent": "Executor",
+                                    "action": "locate_and_click",
+                                    "parameters": {"target": target_elem},
+                                    "description": f"Locate and click '{target_elem}' via Vision Control"
+                                }
+                            ],
+                            "spoken_response": f"Targeting and clicking '{target_elem}' on screen now, Boss."
+                        }
 
         # 3. Desktop Wallpaper Engine & Interactive Follow-up Choices
         from tools.wallpaper_control import wallpaper_control
@@ -377,7 +388,7 @@ class ThinkerAgent(BaseAgent):
         if any(w in p for w in ("and write", "and then", "write")):
             return None
 
-        # 3. Specific search requests (YouTube & Google Search)
+        # 4. Search requests (YouTube & Google Search)
         if "youtube" in p and any(w in p for w in ("search", "play", "find", "dhundo", "chalao")):
             query = user_prompt
             for marker in ("search youtube for", "play on youtube", "play", "search for", "search", "youtube on", "on youtube"):
@@ -401,69 +412,84 @@ class ThinkerAgent(BaseAgent):
                 "spoken_response": f"Searching Google for '{query}', Boss."
             }
 
-        # 4. Specific Websites / Chrome / Browser
-        if any(w in p for w in ("youtube", "google", "chatgpt", "github", "reddit", "twitter", "facebook", "instagram")):
-            url = "https://www.google.com"
-            site_name = "Google"
-            if "youtube" in p:
-                url = "https://www.youtube.com"
-                site_name = "YouTube"
-            elif "chatgpt" in p:
-                url = "https://chatgpt.com"
-                site_name = "ChatGPT"
-            elif "github" in p:
-                url = "https://github.com"
-                site_name = "GitHub"
-            elif "reddit" in p:
-                url = "https://www.reddit.com"
-                site_name = "Reddit"
-            elif "twitter" in p or " x " in f" {p} ":
-                url = "https://x.com"
-                site_name = "X"
-            elif "instagram" in p:
-                url = "https://www.instagram.com"
-                site_name = "Instagram"
+        # 5. Precision Web Services & Direct URLs (Order matters: specific apps match before generic 'google'!)
+        KNOWN_SERVICES = [
+            (["google drive", "drive.google", "drive"], "Google Drive", "https://drive.google.com"),
+            (["google docs", "docs.google", "google doc"], "Google Docs", "https://docs.google.com"),
+            (["google sheets", "sheets.google", "google sheet"], "Google Sheets", "https://sheets.google.com"),
+            (["google slides", "slides.google"], "Google Slides", "https://slides.google.com"),
+            (["gmail", "google mail"], "Gmail", "https://mail.google.com"),
+            (["google calendar", "calendar.google"], "Google Calendar", "https://calendar.google.com"),
+            (["google meet", "meet.google"], "Google Meet", "https://meet.google.com"),
+            (["google photos", "photos.google"], "Google Photos", "https://photos.google.com"),
 
+            (["hosting web", "hostinger web", "hostinger", "hpanel"], "Hostinger hPanel", "https://hpanel.hostinger.com"),
+            (["wp admin", "wp-admin", "wordpress dashboard", "wordpress admin"], "WordPress WP-Admin", "https://risaladigitalmarketing.com/wp-admin"),
+            (["risaladigitalmarketing", "risala digital marketing", "risala website"], "Risala Digital Marketing", "https://risaladigitalmarketing.com"),
+
+            (["youtube", "yt"], "YouTube", "https://www.youtube.com"),
+            (["chatgpt", "openai"], "ChatGPT", "https://chatgpt.com"),
+            (["github"], "GitHub", "https://github.com"),
+            (["linkedin"], "LinkedIn", "https://www.linkedin.com"),
+            (["twitter", " x "], "X", "https://x.com"),
+            (["reddit"], "Reddit", "https://www.reddit.com"),
+            (["instagram", "insta"], "Instagram", "https://www.instagram.com"),
+            (["facebook", "fb"], "Facebook", "https://www.facebook.com"),
+            (["whatsapp web", "whatsapp"], "WhatsApp Web", "https://web.whatsapp.com"),
+            (["canva"], "Canva", "https://www.canva.com"),
+            (["spotify web"], "Spotify Web", "https://open.spotify.com"),
+            (["netflix"], "Netflix", "https://www.netflix.com"),
+
+            # Pure Google Homepage (ONLY if explicitly 'google' without drive/docs/sheets/search)
+            (["google.com", "google homepage", "google"], "Google", "https://www.google.com"),
+        ]
+
+        for aliases, s_name, s_url in KNOWN_SERVICES:
+            if any(alias in p for alias in aliases):
+                profile = "Profile 1" if any(w in p for w in ("risala", "agency", "work", "hostinger", "seo")) else None
+                params = {"url": s_url}
+                if profile:
+                    params["profile"] = profile
+                return {
+                    "intent_summary": f"Open {s_name} in browser",
+                    "requires_confirmation": False,
+                    "steps": [
+                        {"step_id": 1, "assigned_agent": "Executor", "action": "open_url", "parameters": params, "description": f"Navigate to {s_name}"}
+                    ],
+                    "spoken_response": f"Opening {s_name} for you now, Boss."
+                }
+
+        # 6. Tab Navigation: 'open a tab', 'open a new tab', 'new tab', 'open chrome tab'
+        if any(w in p for w in ("open a tab", "open a new tab", "new tab", "open tab", "open chrome tab", "open a chrome tab", "another tab")):
             return {
-                "intent_summary": f"Open {site_name} in browser",
+                "intent_summary": "Open new browser tab",
                 "requires_confirmation": False,
                 "steps": [
-                    {"step_id": 1, "assigned_agent": "Executor", "action": "open_url", "parameters": {"url": url}, "description": f"Navigate to {site_name}"}
+                    {"step_id": 1, "assigned_agent": "Executor", "action": "new_tab", "parameters": {}, "description": "Open new tab via Ctrl+T"}
                 ],
-                "spoken_response": f"Opening {site_name} now."
+                "spoken_response": "Opening a new browser tab now, Boss."
             }
 
-        # 4. General Chrome / Browser launch
-        if "chrome" in p or "browser" in p:
+        # 7. General Chrome / Browser launch (e.g. 'open chrome', 'open browser')
+        if any(w in p for w in ("open chrome", "launch chrome", "open browser", "launch browser")):
             return {
                 "intent_summary": "Launch web browser",
                 "requires_confirmation": False,
                 "steps": [
                     {"step_id": 1, "assigned_agent": "Executor", "action": "open_url", "parameters": {"url": "https://www.google.com"}, "description": "Open default browser"}
                 ],
-                "spoken_response": "Launching your web browser."
+                "spoken_response": "Launching your web browser, Boss."
             }
 
-        # 3. System Vitals & Hardware Telemetry
-        if any(k in p for k in ("battery", "system status", "hardware", "laptop doing", "system doing", "cpu", "ram", "specs")):
+        # 8. Desktop Screen Vision & Analysis (e.g. 'can you see what is on the screen?', 'what is on my screen')
+        if any(k in p for k in ("what is on my screen", "what is on the screen", "can you see what is on the screen", "see what is on the screen", "look at my screen", "inspect screen", "tell me what is on the screen", "what do you see on my screen", "what do you see on the screen")):
             return {
-                "intent_summary": "Inspect hardware and system telemetry",
+                "intent_summary": "Inspect and describe active screen contents",
                 "requires_confirmation": False,
                 "steps": [
-                    {"step_id": 1, "assigned_agent": "Executor", "action": "system_status", "parameters": {}, "description": "Fetch live system metrics"}
+                    {"step_id": 1, "assigned_agent": "Executor", "action": "analyze_screen", "parameters": {"question": user_prompt}, "description": "Analyze active desktop screen via Multimodal Vision"}
                 ],
-                "spoken_response": "Accessing hardware telemetry now."
-            }
-
-        # 4. Desktop Screen Vision & Analysis
-        if any(k in p for k in ("look at my screen", "see my screen", "inspect screen", "what is on my screen", "read screen")):
-            return {
-                "intent_summary": "Capture and analyze desktop screen",
-                "requires_confirmation": False,
-                "steps": [
-                    {"step_id": 1, "assigned_agent": "Executor", "action": "screenshot", "parameters": {}, "description": "Capture screen"}
-                ],
-                "spoken_response": "Analyzing visual telemetry from your desktop, Boss."
+                "spoken_response": "Analyzing your screen right now, Boss."
             }
 
         # 5. Application and Tab / Window Closing (English and Hindi phrasing)

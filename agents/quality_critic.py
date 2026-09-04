@@ -53,19 +53,30 @@ class QualityCritic(BaseAgent):
             import google.generativeai as genai
             from config import config
 
-            key = config.GEMINI_API_KEY
-            if key:
-                genai.configure(api_key=key)
-                img = Image.open(p)
-                model = genai.GenerativeModel(
-                    model_name="gemini-3.7-flash",
-                    system_instruction=system_prompt,
-                    generation_config={"response_mime_type": "application/json", "temperature": 0.2}
-                )
-                resp = model.generate_content([f"Boss's Intent: {user_intent}", img])
-                result = json.loads(resp.text)
-                self.log("EVALUATE_IMAGE", target=p.name, details=result)
-                return result
+            keys = [config.GEMINI_API_KEY, config.GEMINI_FALLBACK_API_KEY]
+            models = ["gemini-flash-latest", "gemini-flash-lite-latest", "gemini-3.7-flash"]
+            img = Image.open(p)
+
+            for key in keys:
+                if not key:
+                    continue
+                try:
+                    genai.configure(api_key=key)
+                    for m_name in models:
+                        try:
+                            model = genai.GenerativeModel(
+                                model_name=m_name,
+                                system_instruction=system_prompt,
+                                generation_config={"response_mime_type": "application/json", "temperature": 0.2}
+                            )
+                            resp = model.generate_content([f"Boss's Intent: {user_intent}", img])
+                            result = json.loads(resp.text)
+                            self.log("EVALUATE_IMAGE", target=p.name, details=result)
+                            return result
+                        except Exception:
+                            continue
+                except Exception:
+                    continue
         except Exception as e:
             logger.warning(f"Vision image evaluation fallback: {e}")
 
@@ -83,8 +94,9 @@ class QualityCritic(BaseAgent):
         """
         system_prompt = (
             "You are Ultron's Senior SEO Critic evaluating optimization for Risala Digital Marketing (Headless CMS / Performance Agency).\n"
+            "Target Market: India (with local focus on Jodhpur, Rajasthan, and Pan-India enterprises).\n"
             "Evaluate the proposed SEO parameters against these strict standards:\n"
-            "- Focus Keyword: Must be high-intent, commercially valuable (e.g. Dubai/UAE or global performance)\n"
+            "- Focus Keyword: Must be high-intent, commercially valuable in India (e.g. Jodhpur / India commercial intent)\n"
             "- Meta Title: Must be under 60 chars and follow '<Focus Keyword> | <Value / Brand>'\n"
             "- Meta Description: Must be 140-155 chars, start with action verb, include focus keyword naturally, and end with CTA\n\n"
             "Respond ONLY with a JSON object:\n"

@@ -68,10 +68,10 @@ class TestUltronV4CognitiveSuite(unittest.TestCase):
         
         eval_result = quality_critic.evaluate_seo_content(
             page_title="About Us",
-            focus_keyword="Digital Marketing Agency in Dubai",
-            meta_title="Digital Marketing Agency in Dubai | Risala Digital",
-            meta_description="Partner with a leading digital marketing agency in Dubai driving high-ROI performance marketing and headless web builds. Connect with Risala today!",
-            page_copy="Risala Digital Marketing is an elite performance agency based in Dubai..."
+            focus_keyword="Digital Marketing Agency in Jodhpur",
+            meta_title="Digital Marketing Agency in Jodhpur | Risala Digital",
+            meta_description="Partner with a leading digital marketing agency in Jodhpur driving high-ROI performance marketing and headless web builds. Connect with Risala today!",
+            page_copy="Risala Digital Marketing is an elite performance agency based in Jodhpur, Rajasthan, India..."
         )
         
         self.assertIn("score", eval_result)

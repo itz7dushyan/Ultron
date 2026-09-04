@@ -73,30 +73,47 @@ class VisionControl:
             import google.generativeai as genai
             from PIL import Image
 
-            api_key = config.GEMINI_API_KEY or config.GEMINI_FALLBACK_API_KEY
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-3.7-flash")
-
+            keys = [config.GEMINI_API_KEY, config.GEMINI_FALLBACK_API_KEY]
+            models = ["gemini-flash-latest", "gemini-flash-lite-latest", "gemini-3.7-flash"]
             img = Image.open(image_path)
             prompt = (
                 f"You are the Vision module of Ultron. The user asks: '{user_question}'.\n"
                 "Analyze this screenshot of their Windows desktop carefully and provide a direct, concise, and helpful answer."
             )
-            response = model.generate_content([prompt, img])
-            analysis_text = response.text.strip()
 
-            state_manager.record_action(
-                agent_name="VisionControl",
-                action="ANALYZE_SCREEN",
-                target=str(image_path),
-                details={"question": user_question, "analysis_length": len(analysis_text)},
-                status="success"
-            )
+            for key in keys:
+                if not key:
+                    continue
+                try:
+                    genai.configure(api_key=key)
+                    for m_name in models:
+                        try:
+                            model = genai.GenerativeModel(m_name)
+                            response = model.generate_content([prompt, img])
+                            analysis_text = response.text.strip()
+
+                            state_manager.record_action(
+                                agent_name="VisionControl",
+                                action="ANALYZE_SCREEN",
+                                target=str(image_path),
+                                details={"question": user_question, "analysis_length": len(analysis_text)},
+                                status="success"
+                            )
+
+                            return {
+                                "success": True,
+                                "image_path": str(image_path),
+                                "analysis": analysis_text
+                            }
+                        except Exception:
+                            continue
+                except Exception:
+                    continue
 
             return {
-                "success": True,
-                "image_path": str(image_path),
-                "analysis": analysis_text
+                "success": False,
+                "error": "All Vision models/keys exhausted or rate limited.",
+                "analysis": "Unable to analyze screen due to API rate limits, Boss."
             }
         except Exception as e:
             logger.error(f"Vision analysis failed: {e}")
@@ -108,7 +125,7 @@ class VisionControl:
 
     def locate_element(self, target_description: str, screenshot_path: Optional[Path] = None) -> Dict[str, Any]:
         """
-        Visually grounds a UI element or button on screen using Gemini 3.7 Flash.
+        Visually grounds a UI element or button on screen using Gemini Vision.
         Returns normalized bounding box and calibrated screen pixel coordinates.
         """
         img_path = screenshot_path or self.capture_screen("element_locate.png")
@@ -137,37 +154,50 @@ class VisionControl:
                 "If the element is not visible or cannot be found, return {\"found\": false, \"error\": \"Reason\"}."
             )
 
-            api_key = config.GEMINI_API_KEY or config.GEMINI_FALLBACK_API_KEY
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel(
-                model_name="gemini-3.7-flash",
-                system_instruction=system_instruction,
-                generation_config={"response_mime_type": "application/json", "temperature": 0.1}
-            )
+            keys = [config.GEMINI_API_KEY, config.GEMINI_FALLBACK_API_KEY]
+            models = ["gemini-flash-latest", "gemini-flash-lite-latest", "gemini-3.7-flash"]
 
-            resp = model.generate_content([f"Find this UI element on screen: {target_description}", img])
-            data = json.loads(resp.text)
+            for key in keys:
+                if not key:
+                    continue
+                try:
+                    genai.configure(api_key=key)
+                    for m_name in models:
+                        try:
+                            model = genai.GenerativeModel(
+                                model_name=m_name,
+                                system_instruction=system_instruction,
+                                generation_config={"response_mime_type": "application/json", "temperature": 0.1}
+                            )
+                            resp = model.generate_content([f"Find this UI element on screen: {target_description}", img])
+                            data = json.loads(resp.text)
 
-            if not data.get("found"):
-                return {"found": False, "error": data.get("error", f"Could not find '{target_description}' on screen.")}
+                            if not data.get("found"):
+                                return {"found": False, "error": data.get("error", f"Could not find '{target_description}' on screen.")}
 
-            box = data.get("box_2d", [0, 0, 0, 0])
-            ymin, xmin, ymax, xmax = box[0], box[1], box[2], box[3]
+                            box = data.get("box_2d", [0, 0, 0, 0])
+                            ymin, xmin, ymax, xmax = box[0], box[1], box[2], box[3]
 
-            # Convert normalized 0-1000 coordinates to actual screen pixels
-            center_x = int(((xmin + xmax) / 2.0) * (img_w / 1000.0))
-            center_y = int(((ymin + ymax) / 2.0) * (img_h / 1000.0))
+                            # Convert normalized 0-1000 coordinates to actual screen pixels
+                            center_x = int(((xmin + xmax) / 2.0) * (img_w / 1000.0))
+                            center_y = int(((ymin + ymax) / 2.0) * (img_h / 1000.0))
 
-            return {
-                "found": True,
-                "confidence": data.get("confidence", 0.9),
-                "element_name": data.get("element_name", target_description),
-                "box_2d": box,
-                "center_x": center_x,
-                "center_y": center_y,
-                "screen_size": (img_w, img_h),
-                "description": data.get("description", "")
-            }
+                            return {
+                                "found": True,
+                                "confidence": data.get("confidence", 0.9),
+                                "element_name": data.get("element_name", target_description),
+                                "box_2d": box,
+                                "center_x": center_x,
+                                "center_y": center_y,
+                                "screen_size": (img_w, img_h),
+                                "description": data.get("description", "")
+                            }
+                        except Exception:
+                            continue
+                except Exception:
+                    continue
+
+            return {"found": False, "error": f"Could not locate '{target_description}' on screen."}
         except Exception as e:
             logger.warning(f"Element visual grounding note: {e}")
             return {"found": False, "error": str(e)}

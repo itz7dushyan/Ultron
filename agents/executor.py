@@ -88,11 +88,13 @@ class ExecutorAgent(BaseAgent):
                 domain = parameters.get("domain") or "Risaladigitalmarketing.com"
                 page = parameters.get("page") or parameters.get("target") or "About Us"
                 agency_kb = memory_bank.get_agency_knowledge()
+                geo = parameters.get("geo") or parameters.get("location") or "India (Jodhpur / Pan-India)"
                 sys_p = (
                     "You are Ultron's Elite SEO Architect for Risala Digital Marketing (Headless WordPress + Next.js).\n"
                     f"Agency Architecture & Workflow Guidelines:\n{agency_kb}\n\n"
+                    f"Target Market: {geo}\n"
                     "Generate a high-converting focus keyword, meta title (<60 chars), and meta description (140-155 chars) "
-                    "tailored for maximum RankMath/Yoast score and Dubai/UAE market intent.\n"
+                    "tailored for maximum RankMath/Yoast score and Indian commercial market intent (e.g. Jodhpur / India).\n"
                     "Respond ONLY with a JSON object:\n"
                     "{\n"
                     '  "domain": "...",\n'
