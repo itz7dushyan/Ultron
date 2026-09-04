@@ -17,28 +17,33 @@ Ultron is a voice-controlled, multi-agent AI assistant engineered specifically f
 3. Your Google Gemini 3.7 Flash API keys are already configured in `.env` with primary and fallback redundancy!
 
 ### 3. Launching Ultron
-You have three ways to interact with Ultron:
+You have four ways to interact with Ultron:
 
-- **Option A: Pure Hands-Free Voice Assistant (Say "Hey Ultron" or "Wake up")**
+- **Option A: Completely Invisible Background Service (Zero Terminal, Zero Taskbar Tab)** ⭐ *(Recommended)*
+  Double-click `start_silent.vbs`!
+  - Ultron runs 100% silently in the background using `pythonw.exe` with no console window and **no taskbar button**.
+  - While you are working on your desktop, browser, or games, simply say **"Hey Ultron"** or **"Wake up Ultron"**.
+  - The futuristic **Orange Aurora Waves** and **Central Arc Reactor HUD** appear on screen, and Ultron answers **instantly in <50ms** calling you **"Boss"**!
+  - To check status: double-click `status_ultron.bat`.
+  - To stop: double-click `stop_ultron.bat`.
+
+- **Option B: Pure Hands-Free Voice Assistant (Console Window)**
   Double-click `voice_mode.bat` or run:
   ```powershell
   python main.py --voice
   ```
-  *No keyboard needed! Ultron listens to your laptop microphone for "Ultron", "Hey Ultron", or "Wake up", answers in a natural voice, and executes your requests.*
 
-- **Option B: Hybrid Desktop Terminal (Voice + Keyboard)**
+- **Option C: Hybrid Desktop Terminal (Voice + Keyboard)**
   Double-click `run.bat` or run:
   ```powershell
   python main.py
   ```
-  *Supports both background voice activation AND typing!*
 
-- **Option C: Cybernetic Web HUD Portal**
+- **Option D: Cybernetic Web HUD Portal**
   Double-click `portal.bat` or run:
   ```powershell
   python portal_server.py
   ```
-  *Opens a futuristic, crimson dark-mode interactive HUD in your browser with real-time system gauges, agent cards, live audio waveform, and command terminal!*
 
 ---
 

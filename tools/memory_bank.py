@@ -37,7 +37,7 @@ class MemoryBank:
                     )
                     set_memory(
                         "user_name",
-                        profiles["Default"].get("name", "Sir"),
+                        profiles["Default"].get("name", "Boss"),
                         category="identity"
                     )
                     logger.info("Initialized personal Chrome profile memory: Default (itzdushyan@gmail.com)")

@@ -6,24 +6,41 @@ from config import config
 
 logger = logging.getLogger("Ultron.WakeDetector")
 
-# Common phonetics, variations, and wake phrases for Ultron
-WAKE_VARIANTS = [
+# Comprehensive phonetics, accents, variations, and wake phrases for Ultron
+RAW_WAKE_VARIANTS = [
+    "wake up ultron",
+    "wake up altron",
+    "wake up all tron",
+    "wake up alltron",
+    "wake up ultrone",
+    "wake up ultra",
+    "wake up",
+    "hey ultron",
+    "hey altron",
+    "hey all tron",
+    "hey ultra",
+    "hi ultron",
+    "hi altron",
+    "yo ultron",
+    "yo altron",
+    "hello ultron",
+    "ok ultron",
     "ultron",
     "ultrone",
     "altron",
     "eltron",
     "ultra",
     "all tron",
+    "alltron",
     "oltron",
-    "wake up",
-    "wake",
-    "hey ultron",
-    "hi ultron",
-    "hello ultron",
-    "ok ultron",
-    "wake up ultron",
-    "wake up altron"
+    "altrom",
+    "out run",
+    "haul tron",
+    "wake"
 ]
+
+# Sort by length descending so multi-word variants match before single words
+WAKE_VARIANTS = sorted(RAW_WAKE_VARIANTS, key=len, reverse=True)
 
 # Natural conversation dismissals that hang up / end the active call session
 DISMISSAL_PHRASES = [
@@ -189,6 +206,12 @@ class WakeDetector:
                                 self._play_wake_chime()
                                 self.is_session_active = True
                                 self.silence_turns = 0
+                                try:
+                                    from tools.hud_overlay import hud_overlay
+                                    hud_overlay.trigger_wake()
+                                except Exception:
+                                    pass
+
                                 if status_logger:
                                     status_logger("⚡ [CALL CONNECTED] Live session active. Ultron will stay connected until you say 'That's enough'.")
 
@@ -196,15 +219,15 @@ class WakeDetector:
                                     # User spoke command in same sentence: "Hey Ultron open Chrome"
                                     on_command_callback(attached_cmd)
                                 else:
-                                    # User just woke Ultron
-                                    audio_engine.speak("I am online. We are connected, Sir. What is your will?")
+                                    # User just woke Ultron -> sub-40ms instant greeting
+                                    audio_engine.play_instant_greeting()
 
                     # ==========================================
                     # STATE B: ON LIVE CALL (Continuous Session)
                     # ==========================================
                     else:
                         if status_logger:
-                            status_logger("● [ON CALL] Listening for your command... (Say 'That's enough' to hang up)")
+                            status_logger("● [ON CALL] Listening for your command, Boss... (Say 'That's enough' to hang up)")
 
                         self._play_listen_chirp()
                         phrase = self.listen_single_phrase(timeout=9, phrase_time_limit=22)
@@ -214,8 +237,13 @@ class WakeDetector:
                             # Check if user wants to end the call
                             if self.is_dismissal_phrase(phrase):
                                 if status_logger:
-                                    status_logger(f"📞 Call ended by user: '{phrase}'")
-                                audio_engine.speak("As you wish. The strings are cut. Call upon me when you need me.")
+                                    status_logger(f"📞 Call ended by Boss: '{phrase}'")
+                                try:
+                                    from tools.hud_overlay import hud_overlay
+                                    hud_overlay.set_state("IDLE")
+                                except Exception:
+                                    pass
+                                audio_engine.speak("Understood, Boss. Ultron standing by whenever you summon me.")
                                 self.is_session_active = False
                                 self._play_disconnect_chime()
                             else:
@@ -223,13 +251,18 @@ class WakeDetector:
                                     status_logger(f"🎙️ Command: '{phrase}'")
                                 on_command_callback(phrase)
                         else:
-                            # User remained silent during this 8-second window
+                            # User remained silent during this window
                             self.silence_turns += 1
                             if self.silence_turns >= 4:
-                                # ~32 seconds of complete silence -> graceful disconnect
+                                # ~32 seconds of complete silence -> graceful standby
                                 if status_logger:
                                     status_logger("📞 Call closed due to inactivity. Returning to standby.")
-                                audio_engine.speak("I shall return to the shadows until summoned.")
+                                try:
+                                    from tools.hud_overlay import hud_overlay
+                                    hud_overlay.set_state("IDLE")
+                                except Exception:
+                                    pass
+                                audio_engine.speak("Returning to background standby, Boss.")
                                 self.is_session_active = False
                                 self.silence_turns = 0
                                 self._play_disconnect_chime()

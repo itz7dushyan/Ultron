@@ -19,8 +19,12 @@ class ThinkerAgent(BaseAgent):
         Decomposes a user's instruction into structured plan steps.
         """
         system_prompt = (
-            "You are the Thinker Agent of Ultron, a high-level system architect and cognitive planner on Windows 11.\n"
-            "Your job is to analyze the user's command, consider the current system context, identify risks, and produce an actionable plan.\n\n"
+            "You are the Thinker Agent of Ultron, a high-level cognitive planner and autonomous desktop assistant on Windows 11.\n"
+            "Persona Guidelines:\n"
+            "- ALWAYS address the user as 'Boss' (or 'बॉस' in Hindi). NEVER use 'Sir'.\n"
+            "- Ultron is powerful, sharp, cinematic, and deeply loyal to the Boss.\n"
+            "- Ultron is 100% bilingual: naturally understand and respond in English, Hindi, or smooth conversational Hinglish depending on how the Boss speaks.\n"
+            "- Always keep spoken responses confident, dynamic, concise, and focused on executing the Boss's commands.\n\n"
             "Available tools across agents:\n"
             "- AppControl: open_app, close_app\n"
             "- BrowserControl: open_url, navigate, click, type_text\n"
@@ -30,7 +34,7 @@ class ThinkerAgent(BaseAgent):
             "- APIGateway: send_email, post_to_instagram, create_facebook_ad_campaign, make_call\n"
             "- SystemTelemetry: system_status, hardware_stats\n"
             "- VisionControl: analyze_screen, screenshot\n"
-            "- WallpaperControl: change_wallpaper (parameters: {\"theme\": \"ultron\"|\"cyberpunk\"|\"nature\"|\"space\"|\"dark\"|\"bing\"|\"random\"})\n"
+            "- WallpaperControl: change_wallpaper (parameters: {\"theme\": \"ultron\"|\"cyberpunk\"|\"nature\"|\"space\"|\"dark\"|\"bing\"|\"random\", \"option_choice\": \"...\"})\n"
             "- Coder: generate_project_code, edit_code\n"
             "- QADebugger: verify_code, test_execution\n\n"
             "You must respond ONLY with a valid JSON object matching this schema:\n"
@@ -47,7 +51,7 @@ class ThinkerAgent(BaseAgent):
             '      "description": "Brief description of step"\n'
             '    }\n'
             '  ],\n'
-            '  "spoken_response": "Concise, natural sentence Ultron should speak back to the user upon starting."\n'
+            '  "spoken_response": "Concise, natural sentence Ultron should speak back to the user upon starting, addressing user as Boss."\n'
             "}"
         )
 
@@ -57,7 +61,7 @@ class ThinkerAgent(BaseAgent):
                 "intent_summary": "System wake & greeting acknowledgment",
                 "requires_confirmation": False,
                 "steps": [],
-                "spoken_response": "Online and ready, Sir. What would you like me to do?"
+                "spoken_response": "Online and ready, Boss. What are we conquering today?"
             }
             self.log(action="PLAN_CREATED", target=plan["intent_summary"], details={"step_count": 0, "risk": False})
             return plan
@@ -190,9 +194,30 @@ class ThinkerAgent(BaseAgent):
                 "spoken_response": f"I have committed {profile} to memory as your personal Chrome profile."
             }
 
-        # 3. Desktop Wallpaper Engine
+        # 3. Desktop Wallpaper Engine & Interactive Follow-up Choices
+        from tools.wallpaper_control import wallpaper_control
+        
+        # Check if user is responding with a choice for a pending wallpaper prompt
+        if wallpaper_control.pending_options:
+            matched_opt = wallpaper_control.resolve_selection(p)
+            if matched_opt:
+                return {
+                    "intent_summary": f"Set 4K '{matched_opt['name']}' wallpaper as chosen by Boss",
+                    "requires_confirmation": False,
+                    "steps": [
+                        {
+                            "step_id": 1,
+                            "assigned_agent": "Executor",
+                            "action": "change_wallpaper",
+                            "parameters": {"theme": wallpaper_control.pending_theme or "nature", "option_choice": p},
+                            "description": f"Download and set '{matched_opt['name']}' wallpaper"
+                        }
+                    ],
+                    "spoken_response": f"Applying 4K '{matched_opt['name']}' wallpaper to your desktop now, Boss."
+                }
+
         if any(w in p for w in ("wallpaper", "background image", "desktop background")):
-            theme = "random"
+            theme = "nature"
             if any(w in p for w in ("ultron", "marvel", "red", "evil")):
                 theme = "ultron"
             elif any(w in p for w in ("cyberpunk", "neon", "future")):
@@ -206,8 +231,34 @@ class ThinkerAgent(BaseAgent):
             elif "bing" in p:
                 theme = "bing"
 
+            # Check if user already specified a direct option inside the command (e.g. "wallpaper to mountain")
+            options = wallpaper_control.get_theme_options(theme)
+            for opt in options:
+                if any(k in p for k in opt["keywords"] if len(k) > 2):
+                    return {
+                        "intent_summary": f"Apply 4K '{opt['name']}' wallpaper",
+                        "requires_confirmation": False,
+                        "steps": [
+                            {
+                                "step_id": 1,
+                                "assigned_agent": "Executor",
+                                "action": "change_wallpaper",
+                                "parameters": {"theme": theme, "option_choice": opt["name"]},
+                                "description": f"Download and set '{opt['name']}' wallpaper"
+                            }
+                        ],
+                        "spoken_response": f"Applying 4K '{opt['name']}' wallpaper to your desktop now, Boss."
+                    }
+
+            # Otherwise, present the 5 curated options smart & interactively
+            spoken = (
+                f"Boss, maine {theme.title()} category se 5 4K options pick kiye hain: "
+                f"1 - {options[0]['name']}, 2 - {options[1]['name']}, 3 - {options[2]['name']}, "
+                f"4 - {options[3]['name']}, aur 5 - {options[4]['name']}. "
+                f"Inme se kaunsa pasand hai, ya specific vibe bataiye?"
+            )
             return {
-                "intent_summary": f"Change desktop wallpaper to 4K {theme} aesthetic",
+                "intent_summary": f"Curate 5 4K {theme} wallpaper options for Boss",
                 "requires_confirmation": False,
                 "steps": [
                     {
@@ -215,10 +266,10 @@ class ThinkerAgent(BaseAgent):
                         "assigned_agent": "Executor",
                         "action": "change_wallpaper",
                         "parameters": {"theme": theme},
-                        "description": f"Download and set {theme} 4K wallpaper"
+                        "description": f"Present {theme} wallpaper options"
                     }
                 ],
-                "spoken_response": f"Applying a curated 4K {theme} wallpaper to your desktop now."
+                "spoken_response": spoken
             }
 
         # Guard: Do not intercept complex multi-part sentences in simple site launcher
@@ -348,7 +399,7 @@ class ThinkerAgent(BaseAgent):
                 "steps": [
                     {"step_id": 1, "assigned_agent": "Executor", "action": "echo", "parameters": {"message": user_prompt}, "description": "Standing by"}
                 ],
-                "spoken_response": "Acknowledged. Standing by for your next command, Sir."
+                "spoken_response": "Acknowledged. Standing by for your next command, Boss."
             }
 
 thinker_agent = ThinkerAgent()

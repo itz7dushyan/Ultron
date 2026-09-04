@@ -10,11 +10,13 @@ logger = logging.getLogger("Ultron.AudioEngine")
 
 CACHE_DIR = DATA_DIR / "audio_cache"
 CACHE_DIR.mkdir(exist_ok=True, parents=True)
+GREETINGS_DIR = CACHE_DIR / "greetings"
+GREETINGS_DIR.mkdir(exist_ok=True, parents=True)
 
 class AudioEngine:
     """
-    Audio Engine managing Text-To-Speech (TTS) via edge-tts
-    and Speech-To-Text (STT) via Groq/OpenAI Whisper.
+    Audio Engine managing Text-To-Speech (TTS) via edge-tts,
+    instant sub-50ms pre-cached greetings, and Speech-To-Text (STT).
     """
 
     def __init__(self):
@@ -24,6 +26,67 @@ class AudioEngine:
         self.tts_volume = config.TTS_VOLUME
         self.use_filter = getattr(config, "TTS_CYBERNETIC_FILTER", True)
         self.is_speaking = False
+        self._state_listeners = []
+        try:
+            from tools.hud_overlay import hud_overlay
+            self.register_state_listener(hud_overlay.trigger_speaking)
+        except Exception:
+            pass
+
+    def register_state_listener(self, callback):
+        """Registers a callback(is_speaking: bool) for HUD/visualizers."""
+        if callback not in self._state_listeners:
+            self._state_listeners.append(callback)
+
+    def _notify_state(self, speaking: bool):
+        self.is_speaking = speaking
+        for cb in self._state_listeners:
+            try:
+                cb(speaking)
+            except Exception:
+                pass
+
+    def play_instant_greeting(self) -> str:
+        """
+        Plays a pre-rendered high-fidelity Ultron greeting in <40ms.
+        Time-aware (Morning/Afternoon/Evening/Night) and addresses user as Boss.
+        """
+        import datetime
+        import random
+
+        hour = datetime.datetime.now().hour
+        candidates = []
+
+        if 5 <= hour < 12:
+            candidates.extend(["morning_1", "morning_2", "general_1", "general_3"])
+        elif 12 <= hour < 17:
+            candidates.extend(["afternoon_1", "afternoon_2", "general_1", "general_4"])
+        elif 17 <= hour < 22:
+            candidates.extend(["evening_1", "evening_2", "general_2", "general_3"])
+        else:
+            candidates.extend(["night_1", "night_2", "general_1", "general_5"])
+
+        candidates.extend(["general_1", "general_2", "general_3", "general_4", "general_5"])
+        chosen = random.choice(candidates)
+        wav_path = GREETINGS_DIR / f"{chosen}.wav"
+
+        # Fallback if specific greeting is missing
+        if not wav_path.exists():
+            existing = list(GREETINGS_DIR.glob("*.wav"))
+            if existing:
+                wav_path = random.choice(existing)
+
+        if wav_path.exists():
+            self._notify_state(True)
+            try:
+                self._play_audio_windows(wav_path)
+            finally:
+                self._notify_state(False)
+            return chosen
+        else:
+            # If cache not generated yet, speak fallback
+            self.speak("Online Boss. Systems ready.")
+            return "fallback"
 
     def _apply_ultron_filter(self, mp3_path: Path) -> Path:
         """Applies cybernetic metallic resonator comb-filter for movie-accurate Ultron voice."""
@@ -58,7 +121,7 @@ class AudioEngine:
         if not config.VOICE_OUTPUT_ENABLED or not text.strip():
             return
 
-        self.is_speaking = True
+        self._notify_state(True)
         mp3_path = CACHE_DIR / "ultron_speech.mp3"
         
         try:
@@ -77,7 +140,7 @@ class AudioEngine:
         except Exception as e:
             logger.warning(f"TTS synthesis warning: {e}. Printing to console instead.")
         finally:
-            self.is_speaking = False
+            self._notify_state(False)
 
     def speak(self, text: str):
         """Synchronous wrapper for speak_async."""

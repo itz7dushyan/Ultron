@@ -140,8 +140,14 @@ def main():
 
     is_hands_free = "--voice" in sys.argv
 
-    # Start continuous background voice listener
+    # Start continuous background voice listener & Orange Aurora HUD Overlay
     if config.VOICE_INPUT_ENABLED:
+        try:
+            from tools.hud_overlay import hud_overlay
+            hud_overlay.start()
+        except Exception:
+            pass
+
         wake_detector.start_background_listener(
             on_command_callback=lambda cmd: execute_command(cmd, source="Voice"),
             status_logger=lambda msg: console.print(f"[dim cyan]{msg}[/dim cyan]")

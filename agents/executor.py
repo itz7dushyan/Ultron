@@ -137,7 +137,8 @@ class ExecutorAgent(BaseAgent):
             elif action_clean in ("change_wallpaper", "set_wallpaper", "wallpaper"):
                 theme = parameters.get("theme") or parameters.get("style") or "random"
                 path = parameters.get("path") or parameters.get("image_path")
-                return wallpaper_control.change_wallpaper(theme=theme, custom_path=path)
+                choice = parameters.get("option_choice") or parameters.get("choice")
+                return wallpaper_control.change_wallpaper(theme=theme, custom_path=path, option_choice=choice)
 
             elif action_clean == "echo":
                 return {"success": True, "message": parameters.get("message", "")}
