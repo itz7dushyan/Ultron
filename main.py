@@ -94,9 +94,15 @@ def execute_command(clean_input: str, source: str = "Keyboard"):
     if not clean_input:
         return
 
-    if clean_input.lower() in ("exit", "quit", "shutdown"):
-        farewell = "Goodbye. Ultron shutting down."
+    lower_cmd = clean_input.lower().strip()
+    if lower_cmd in ("exit", "quit", "shutdown", "shut down", "turn off", "power off", "close ultron", "stop ultron") or any(k in lower_cmd for k in ("shutdown completely", "shut down completely", "close ultron completely")):
+        farewell = "Goodbye, Boss. Ultron shutting down completely."
         console.print(f"[bold red]Ultron:[/bold red] {farewell}")
+        try:
+            from tools.hud_overlay import hud_overlay
+            hud_overlay.stop()
+        except Exception:
+            pass
         audio_engine.speak(farewell)
         os._exit(0)
 

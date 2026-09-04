@@ -155,6 +155,17 @@ class WakeDetector:
         cleaned = text.lower().strip()
         return any(d in cleaned for d in DISMISSAL_PHRASES)
 
+    def is_shutdown_phrase(self, text: str) -> bool:
+        """Checks if the user wants to completely terminate Ultron."""
+        cleaned = text.lower().strip()
+        shutdown_phrases = [
+            "shut down completely", "shutdown completely", "close ultron completely",
+            "shutdown ultron", "shut down ultron", "turn off ultron", "power off ultron",
+            "exit ultron", "quit ultron", "stop ultron", "kill ultron",
+            "shutdown", "shut down", "power off", "turn off"
+        ]
+        return any(k in cleaned for k in shutdown_phrases)
+
     def listen_single_phrase(self, timeout: int = 5, phrase_time_limit: int = 8) -> Optional[str]:
         """Listens for a single speech phrase from the microphone."""
         if not self._recognizer or not self._microphone:
@@ -234,8 +245,15 @@ class WakeDetector:
 
                         if phrase:
                             self.silence_turns = 0
-                            # Check if user wants to end the call
-                            if self.is_dismissal_phrase(phrase):
+                            # Check if user wants to completely terminate Ultron
+                            if self.is_shutdown_phrase(phrase):
+                                if status_logger:
+                                    status_logger(f"🛑 Complete shutdown requested by Boss: '{phrase}'")
+                                on_command_callback("shutdown completely")
+                                break
+
+                            # Check if user wants to end the call (return to standby)
+                            elif self.is_dismissal_phrase(phrase):
                                 if status_logger:
                                     status_logger(f"📞 Call ended by Boss: '{phrase}'")
                                 try:
