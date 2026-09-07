@@ -11,19 +11,21 @@ logger = logging.getLogger("Ultron.LLMClient")
 class UnifiedLLMClient:
     """
     Unified Multi-Model Swarm Provider Pool supporting:
-    - Groq (ultra-low latency Llama-3.3-70b, Qwen, Compound-Mini)
+    - NVIDIA NIM (Meta Llama-3.3-70B, Qwen-2.5-Coder-32B, Nemotron-70B)
+    - Groq Multi-Key Pool (Llama-3.3-70B, DeepSeek-R1-Distill-70B, Compound-Mini)
     - OpenAI (GPT-4o, o3-mini)
     - Google Gemini (Gemini Flash, Gemini 3.7 Flash)
-    - Experiential Labs Gateway (Unified model router via OpenAI-compatible endpoint)
     - Anthropic (Claude 3.5 Sonnet)
     """
 
     def __init__(self):
         self._provider = config.LLM_PROVIDER
         self._active_client = None
-        self._experiential_client = None
+        self._nvidia_client = None
+        self._nvidia_qwen_client = None
         self._openai_client = None
-        self._groq_client = None
+        self._groq_clients = []
+        self._groq_idx = 0
         self._anthropic_client = None
         self._exhausted_keys_models = set()
         self._init_providers()
@@ -39,16 +41,43 @@ class UnifiedLLMClient:
 
     def _init_providers(self):
         """Initializes all configured API provider clients for parallel swarm usage."""
-        # 1. Groq (Ultra-low latency for voice & fast routing)
-        if self._is_valid_key(config.GROQ_API_KEY):
+        # 1. NVIDIA NIM (Meta Llama 3.3 70B & Qwen 2.5 Coder 32B)
+        if self._is_valid_key(config.NVIDIA_API_KEY):
             try:
-                from groq import Groq
-                self._groq_client = Groq(api_key=config.GROQ_API_KEY)
-                logger.info("Swarm Brain initialized: Groq Provider Active.")
+                from openai import OpenAI
+                self._nvidia_client = OpenAI(
+                    api_key=config.NVIDIA_API_KEY,
+                    base_url=config.NVIDIA_BASE_URL
+                )
+                logger.info("Swarm Brain initialized: NVIDIA NIM Meta Llama 3.3 70B Active.")
             except Exception as e:
-                logger.warning(f"Groq initialization note: {e}")
+                logger.warning(f"NVIDIA NIM initialization note: {e}")
 
-        # 2. OpenAI Direct
+        if self._is_valid_key(config.NVIDIA_QWEN_KEY):
+            try:
+                from openai import OpenAI
+                self._nvidia_qwen_client = OpenAI(
+                    api_key=config.NVIDIA_QWEN_KEY,
+                    base_url=config.NVIDIA_BASE_URL
+                )
+                logger.info("Swarm Brain initialized: NVIDIA NIM Qwen 2.5 Coder Active.")
+            except Exception as e:
+                logger.warning(f"NVIDIA Qwen initialization note: {e}")
+
+        # 2. Groq Multi-Key Rotation Pool
+        self._groq_clients = []
+        groq_keys = getattr(config, "GROQ_KEYS", [config.GROQ_API_KEY])
+        for g_key in groq_keys:
+            if self._is_valid_key(g_key):
+                try:
+                    from groq import Groq
+                    self._groq_clients.append(Groq(api_key=g_key))
+                except Exception:
+                    pass
+        if self._groq_clients:
+            logger.info(f"Swarm Brain initialized: Groq Rotation Pool Active with {len(self._groq_clients)} keys.")
+
+        # 3. OpenAI Direct
         if self._is_valid_key(config.OPENAI_API_KEY):
             try:
                 from openai import OpenAI
@@ -56,19 +85,6 @@ class UnifiedLLMClient:
                 logger.info("Swarm Brain initialized: OpenAI Provider Active.")
             except Exception as e:
                 logger.warning(f"OpenAI initialization note: {e}")
-
-        # 3. Experiential Labs Gateway (Unified Router)
-        exp_key = config.EXPERIENTIAL_API_KEY or os.getenv("EXPERIENTIAL_API_KEY")
-        if self._is_valid_key(exp_key):
-            try:
-                from openai import OpenAI
-                self._experiential_client = OpenAI(
-                    api_key=exp_key,
-                    base_url=config.EXPERIENTIAL_BASE_URL
-                )
-                logger.info("Swarm Brain initialized: Experiential Labs Gateway Active.")
-            except Exception as e:
-                logger.warning(f"Experiential Labs Gateway note: {e}")
 
         # 4. Anthropic
         if self._is_valid_key(config.ANTHROPIC_API_KEY):
@@ -78,6 +94,14 @@ class UnifiedLLMClient:
                 logger.info("Swarm Brain initialized: Anthropic Provider Active.")
             except Exception as e:
                 logger.warning(f"Anthropic initialization note: {e}")
+
+    def _get_next_groq_client(self):
+        """Returns the next available Groq client via round-robin rotation."""
+        if not self._groq_clients:
+            return None
+        client = self._groq_clients[self._groq_idx % len(self._groq_clients)]
+        self._groq_idx += 1
+        return client
 
     def complete(self, system_prompt: str, user_prompt: str, temperature: float = 0.2, json_mode: bool = False, max_tokens: Optional[int] = None) -> str:
         """Standard uniform completion routing across provider cascade."""
@@ -101,47 +125,91 @@ class UnifiedLLMClient:
     ) -> str:
         """
         Specialized model completion tailored for specific swarm brains:
-        - 'commander': Groq / OpenAI / Gemini
-        - 'browser': OpenAI / Gemini
-        - 'os_device': Groq / Gemini
-        - 'big_tasks': OpenAI / Experiential / Gemini
-        - 'telephony': Groq / OpenAI
-        - 'quality_critic': Gemini JSON / OpenAI
-        - 'voice': Groq (fast <250ms)
+        - 'commander': NVIDIA Llama-3.3-70B / Groq Llama-3.3-70B
+        - 'browser': NVIDIA Qwen-2.5-Coder / OpenAI / Gemini
+        - 'os_device': NVIDIA Qwen-2.5-Coder / Groq
+        - 'big_tasks': NVIDIA Llama-3.3-70B / Groq DeepSeek-R1 / OpenAI
+        - 'telephony': NVIDIA / Groq
+        - 'quality_critic': Gemini JSON / NVIDIA Llama-3.3-70B
+        - 'voice': Groq (ultra-low latency <200ms)
         """
-        # 1. Prioritize Gemini for JSON Mode (deep schema adhesion)
+        # 1. Prioritize Gemini for deep JSON Mode (schema adhering)
         if json_mode and (self._is_valid_key(config.GEMINI_API_KEY) or self._is_valid_key(config.GEMINI_FALLBACK_API_KEY)):
-            res = self._complete_gemini(system_prompt, user_prompt, temperature, json_mode=True)
-            if res and not res.startswith("{") and not res.startswith("["):
-                # Clean markdown backticks if returned
-                cleaned = res.strip()
-                if cleaned.startswith("```json"):
-                    cleaned = cleaned[7:]
-                if cleaned.startswith("```"):
-                    cleaned = cleaned[3:]
-                if cleaned.endswith("```"):
-                    cleaned = cleaned[:-3]
-                return cleaned.strip()
-            return res
-
-        # 2. Experiential Labs Gateway (for Big Tasks or if OpenAI direct is unavailable)
-        if (brain_name in ("big_tasks", "meta_prompting") or self._provider == "experiential") and self._experiential_client:
             try:
-                resp = self._experiential_client.chat.completions.create(
-                    model="gpt-4o",
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt}
-                    ],
-                    temperature=temperature,
-                    max_tokens=max_tokens or 2000
-                )
-                return resp.choices[0].message.content or ""
+                res = self._complete_gemini(system_prompt, user_prompt, temperature, json_mode=True)
+                if res and not res.startswith("{") and not res.startswith("["):
+                    cleaned = res.strip()
+                    if cleaned.startswith("```json"):
+                        cleaned = cleaned[7:]
+                    if cleaned.startswith("```"):
+                        cleaned = cleaned[3:]
+                    if cleaned.endswith("```"):
+                        cleaned = cleaned[:-3]
+                    return cleaned.strip()
+                return res
             except Exception as e:
-                logger.warning(f"Experiential Labs Gateway note: {e}. Cascading.")
+                logger.debug(f"Gemini JSON cascade: {e}")
 
-        # 3. OpenAI Direct
-        if self._openai_client and (brain_name in ("commander", "browser", "big_tasks", "telephony") or self._provider == "openai"):
+        # 1. Groq Multi-Key Rotation Pool (Ultra-fast <200ms Llama-3.3 / Qwen / GPT-OSS)
+        groq_client = self._get_next_groq_client()
+        if groq_client:
+            models_order = ["qwen/qwen3.8-27b", "openai/gpt-oss-120b", "groq/compound-mini"]
+            if brain_name == "voice":
+                models_order = ["groq/compound-mini", "qwen/qwen3.8-27b"]
+            elif brain_name in ("big_tasks", "commander"):
+                models_order = ["qwen/qwen3.8-27b", "openai/gpt-oss-120b", "groq/compound-mini"]
+
+            for model_to_use in models_order:
+                try:
+                    kwargs = {
+                        "model": model_to_use,
+                        "messages": [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt}
+                        ],
+                        "temperature": temperature,
+                        "max_tokens": max_tokens or (150 if brain_name == "voice" else 1000),
+                        "timeout": 8.0
+                    }
+                    if json_mode:
+                        kwargs["response_format"] = {"type": "json_object"}
+                    resp = groq_client.chat.completions.create(**kwargs)
+                    content = resp.choices[0].message.content or ""
+                    if "<think>" in content and "</think>" in content:
+                        content = content.split("</think>")[-1].strip()
+                    if content:
+                        return content
+                except Exception as e:
+                    logger.debug(f"Groq API ({model_to_use}) note: {e}. Cascading.")
+
+        # 2. NVIDIA NIM: Nemotron 70B & Codestral (For Heavy Reasoning / Backup)
+        if self._nvidia_client and brain_name in ("commander", "big_tasks", "telephony", "general"):
+            for n_model in ("nvidia/llama-3.1-nemotron-70b-instruct", "mistralai/mistral-large-2-instruct"):
+                try:
+                    kwargs = {
+                        "model": n_model,
+                        "messages": [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt}
+                        ],
+                        "temperature": temperature,
+                        "max_tokens": max_tokens or 1500,
+                        "timeout": 8.0
+                    }
+                    if json_mode:
+                        kwargs["response_format"] = {"type": "json_object"}
+                    resp = self._nvidia_client.chat.completions.create(**kwargs)
+                    if resp and resp.choices[0].message.content:
+                        return resp.choices[0].message.content
+                except Exception as e:
+                    logger.debug(f"NVIDIA ({n_model}) note: {e}. Cascading.")
+
+        # 3. Gemini Flash Cascade (For Multimodal Vision & Complex JSON)
+        if self._is_valid_key(config.GEMINI_API_KEY) or self._is_valid_key(config.GEMINI_FALLBACK_API_KEY):
+            return self._complete_gemini(system_prompt, user_prompt, temperature, json_mode)
+
+        # 6. OpenAI Direct (if active)
+        if self._openai_client:
             try:
                 kwargs = {
                     "model": config.OPENAI_MODEL,
@@ -159,47 +227,10 @@ class UnifiedLLMClient:
             except Exception as e:
                 logger.warning(f"OpenAI note: {e}. Cascading.")
 
-        # 4. Groq Direct (Ultra-fast)
-        if self._groq_client:
-            try:
-                kwargs = {
-                    "model": config.GROQ_MODEL,
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt}
-                    ],
-                    "temperature": temperature,
-                    "max_tokens": max_tokens or (150 if brain_name == "voice" else 850)
-                }
-                if json_mode:
-                    kwargs["response_format"] = {"type": "json_object"}
-                resp = self._groq_client.chat.completions.create(**kwargs)
-                return resp.choices[0].message.content or ""
-            except Exception as e:
-                logger.warning(f"Groq API note: {e}. Cascading to Gemini.")
-
-        # 5. Gemini Cascade
-        if self._is_valid_key(config.GEMINI_API_KEY) or self._is_valid_key(config.GEMINI_FALLBACK_API_KEY):
-            return self._complete_gemini(system_prompt, user_prompt, temperature, json_mode)
-
-        # 6. Anthropic
-        if self._anthropic_client:
-            try:
-                resp = self._anthropic_client.messages.create(
-                    model=config.ANTHROPIC_MODEL,
-                    system=system_prompt,
-                    max_tokens=max_tokens or 4096,
-                    temperature=temperature,
-                    messages=[{"role": "user", "content": user_prompt}]
-                )
-                return resp.content[0].text
-            except Exception as e:
-                logger.warning(f"Anthropic note: {e}. Cascading.")
-
         return self._offline_fallback_response(system_prompt, user_prompt, json_mode)
 
     def _complete_gemini(self, system_prompt: str, user_prompt: str, temperature: float = 0.2, json_mode: bool = False) -> str:
-        """Executes completion via Google Gemini Flash / 3.7 cascade."""
+        """Executes completion via Google Gemini Flash cascade."""
         generation_config = {"temperature": temperature}
         if json_mode:
             generation_config["response_mime_type"] = "application/json"
@@ -249,7 +280,6 @@ class UnifiedLLMClient:
                         logger.warning(f"Gemini call error on {m_name}: {err_str[:120]}")
                         continue
 
-        logger.error("All Gemini API keys and cascade models exhausted. Falling back to offline response.")
         return self._offline_fallback_response(system_prompt, user_prompt, json_mode)
 
     def _offline_fallback_response(self, system_prompt: str, user_prompt: str, json_mode: bool) -> str:

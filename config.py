@@ -30,6 +30,19 @@ class UltronConfig:
     
     # API Keys
     GROQ_API_KEY: Optional[str] = os.getenv("GROQ_API_KEY")
+    GROQ_KEYS: list = [k for k in [
+        os.getenv("GROQ_API_KEY"),
+        os.getenv("GROQ_KEY_2"),
+        os.getenv("GROQ_KEY_3"),
+        os.getenv("GROQ_KEY_4"),
+        os.getenv("GROQ_FALLBACK_API_KEY")
+    ] if k]
+    
+    # NVIDIA NIM Frontier Models (OpenAI-compatible)
+    NVIDIA_API_KEY: Optional[str] = os.getenv("NVIDIA_API_KEY")
+    NVIDIA_QWEN_KEY: Optional[str] = os.getenv("NVIDIA_QWEN_KEY")
+    NVIDIA_BASE_URL: str = os.getenv("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1")
+    
     OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY")
     ANTHROPIC_API_KEY: Optional[str] = os.getenv("ANTHROPIC_API_KEY")
     GEMINI_API_KEY: Optional[str] = os.getenv("GEMINI_API_KEY")
@@ -38,6 +51,13 @@ class UltronConfig:
     EXPERIENTIAL_BASE_URL: str = os.getenv("EXPERIENTIAL_BASE_URL", "https://api.experientiallabs.ai/v1")
     BLAND_API_KEY: Optional[str] = os.getenv("BLAND_API_KEY")
     VAPI_API_KEY: Optional[str] = os.getenv("VAPI_API_KEY")
+    ELEVENLABS_API_KEY: Optional[str] = os.getenv("ELEVENLABS_API_KEY")
+    ELEVENLABS_VOICE_ID: str = os.getenv("ELEVENLABS_VOICE_ID", "JBFqnCBsd6RMkjVDRZzb")  # George / British Jarvis
+    
+    # Supabase Cloud Database & Persistent Memory
+    SUPABASE_URL: Optional[str] = os.getenv("SUPABASE_URL")
+    SUPABASE_KEY: Optional[str] = os.getenv("SUPABASE_KEY")
+    SUPABASE_SERVICE_ROLE_KEY: Optional[str] = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
     
     # Models
     GROQ_MODEL: str = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
