@@ -129,6 +129,42 @@ class AudioEngine:
         import re
         clean_text = re.sub(r'\s+', ' ', clean_text).strip()
 
+        # 1. Try ElevenLabs High-Fidelity Streaming Voice Engine (British Jarvis / Ultron)
+        if config.ELEVENLABS_API_KEY:
+            try:
+                import urllib.request
+                import json
+                voice_id = getattr(config, "ELEVENLABS_VOICE_ID", "JBFqnCBsd6RMkjVDRZzb")
+                url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+                headers = {
+                    "xi-api-key": config.ELEVENLABS_API_KEY,
+                    "Content-Type": "application/json"
+                }
+                payload = json.dumps({
+                    "text": clean_text,
+                    "model_id": "eleven_turbo_v2_5",
+                    "voice_settings": {
+                        "stability": 0.5,
+                        "similarity_boost": 0.8
+                    }
+                }).encode("utf-8")
+
+                req = urllib.request.Request(url, data=payload, headers=headers)
+                loop = asyncio.get_event_loop()
+                # Run network I/O in thread pool to prevent blocking async event loop
+                resp = await loop.run_in_executor(None, lambda: urllib.request.urlopen(req, timeout=8))
+                audio_bytes = resp.read()
+                
+                with open(mp3_path, "wb") as f:
+                    f.write(audio_bytes)
+
+                play_target = self._apply_ultron_filter(mp3_path) if self.use_filter else mp3_path
+                self._play_audio_windows(play_target)
+                return
+            except Exception as e:
+                logger.debug(f"ElevenLabs TTS note: {e}. Cascading to Edge-TTS.")
+
+        # 2. Fallback: Edge-TTS Neural
         try:
             import edge_tts
             communicate = edge_tts.Communicate(
