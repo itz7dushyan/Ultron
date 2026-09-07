@@ -63,6 +63,17 @@ class BrowserTools:
         target = self.resolve_profile(profile_name)
         return self.open_url_quick(url, profile=target)
 
+    def open_url(self, url: str, profile: Optional[str] = None) -> Dict[str, Any]:
+        """Directly launches URL in specified Chrome profile."""
+        return self.open_url_quick(url, profile=profile)
+
+    def close_current_tab(self) -> Dict[str, Any]:
+        """Closes active tab with Ctrl+W."""
+        import pyautogui
+        pyautogui.hotkey('ctrl', 'w')
+        state_manager.record_action("BrowserTools", "CLOSE_TAB", "Ctrl+W", status="success")
+        return {"success": True, "message": "Closed active tab, Boss."}
+
     def open_url_quick(self, url: str, profile: Optional[str] = None) -> Dict[str, Any]:
         """Directly launches URL in specified Chrome profile (defaults to Risala Digital Marketing for agency/web tasks)."""
         clean_url = self._ensure_url(url)

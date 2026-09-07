@@ -34,12 +34,16 @@ class UltronConfig:
     ANTHROPIC_API_KEY: Optional[str] = os.getenv("ANTHROPIC_API_KEY")
     GEMINI_API_KEY: Optional[str] = os.getenv("GEMINI_API_KEY")
     GEMINI_FALLBACK_API_KEY: Optional[str] = os.getenv("GEMINI_FALLBACK_API_KEY")
+    EXPERIENTIAL_API_KEY: Optional[str] = os.getenv("EXPERIENTIAL_API_KEY")
+    EXPERIENTIAL_BASE_URL: str = os.getenv("EXPERIENTIAL_BASE_URL", "https://api.experientiallabs.ai/v1")
+    BLAND_API_KEY: Optional[str] = os.getenv("BLAND_API_KEY")
+    VAPI_API_KEY: Optional[str] = os.getenv("VAPI_API_KEY")
     
     # Models
     GROQ_MODEL: str = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
     OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4o")
     ANTHROPIC_MODEL: str = os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022")
-    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
+    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
     
     # Voice configuration (Marvel Ultron Cybernetic Voice)
     TTS_VOICE: str = os.getenv("TTS_VOICE", "en-US-ChristopherNeural")

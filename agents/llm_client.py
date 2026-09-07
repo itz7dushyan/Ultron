@@ -10,14 +10,23 @@ logger = logging.getLogger("Ultron.LLMClient")
 
 class UnifiedLLMClient:
     """
-    Unified client supporting Groq, OpenAI, Anthropic, and Google Gemini APIs.
-    Provides uniform interface for multi-agent reasoning and tool coordination.
+    Unified Multi-Model Swarm Provider Pool supporting:
+    - Groq (ultra-low latency Llama-3.3-70b, Qwen, Compound-Mini)
+    - OpenAI (GPT-4o, o3-mini)
+    - Google Gemini (Gemini Flash, Gemini 3.7 Flash)
+    - Experiential Labs Gateway (Unified model router via OpenAI-compatible endpoint)
+    - Anthropic (Claude 3.5 Sonnet)
     """
 
     def __init__(self):
         self._provider = config.LLM_PROVIDER
         self._active_client = None
-        self._init_provider()
+        self._experiential_client = None
+        self._openai_client = None
+        self._groq_client = None
+        self._anthropic_client = None
+        self._exhausted_keys_models = set()
+        self._init_providers()
 
     @staticmethod
     def _is_valid_key(key: Optional[str]) -> bool:
@@ -28,73 +37,130 @@ class UnifiedLLMClient:
             return False
         return True
 
-    def _init_provider(self):
-        """Initializes the preferred provider or searches for an available key."""
-        # 1. Check Groq
-        if (self._provider == "groq" or not self._active_client) and self._is_valid_key(config.GROQ_API_KEY):
+    def _init_providers(self):
+        """Initializes all configured API provider clients for parallel swarm usage."""
+        # 1. Groq (Ultra-low latency for voice & fast routing)
+        if self._is_valid_key(config.GROQ_API_KEY):
             try:
                 from groq import Groq
                 self._groq_client = Groq(api_key=config.GROQ_API_KEY)
-                self._active_provider = "groq"
-                self._active_client = self._groq_client
-                logger.info("Ultron Brain initialized via Groq.")
-                return
+                logger.info("Swarm Brain initialized: Groq Provider Active.")
             except Exception as e:
-                logger.warning(f"Failed to load Groq: {e}")
+                logger.warning(f"Groq initialization note: {e}")
 
-        # 2. Check OpenAI
-        if (self._provider == "openai" or not self._active_client) and self._is_valid_key(config.OPENAI_API_KEY):
+        # 2. OpenAI Direct
+        if self._is_valid_key(config.OPENAI_API_KEY):
             try:
                 from openai import OpenAI
                 self._openai_client = OpenAI(api_key=config.OPENAI_API_KEY)
-                self._active_provider = "openai"
-                self._active_client = self._openai_client
-                logger.info("Ultron Brain initialized via OpenAI.")
-                return
+                logger.info("Swarm Brain initialized: OpenAI Provider Active.")
             except Exception as e:
-                logger.warning(f"Failed to load OpenAI: {e}")
+                logger.warning(f"OpenAI initialization note: {e}")
 
-        # 3. Check Anthropic
-        if (self._provider == "anthropic" or not self._active_client) and self._is_valid_key(config.ANTHROPIC_API_KEY):
+        # 3. Experiential Labs Gateway (Unified Router)
+        exp_key = config.EXPERIENTIAL_API_KEY or os.getenv("EXPERIENTIAL_API_KEY")
+        if self._is_valid_key(exp_key):
+            try:
+                from openai import OpenAI
+                self._experiential_client = OpenAI(
+                    api_key=exp_key,
+                    base_url=config.EXPERIENTIAL_BASE_URL
+                )
+                logger.info("Swarm Brain initialized: Experiential Labs Gateway Active.")
+            except Exception as e:
+                logger.warning(f"Experiential Labs Gateway note: {e}")
+
+        # 4. Anthropic
+        if self._is_valid_key(config.ANTHROPIC_API_KEY):
             try:
                 import anthropic
                 self._anthropic_client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
-                self._active_provider = "anthropic"
-                self._active_client = self._anthropic_client
-                logger.info("Ultron Brain initialized via Anthropic.")
-                return
+                logger.info("Swarm Brain initialized: Anthropic Provider Active.")
             except Exception as e:
-                logger.warning(f"Failed to load Anthropic: {e}")
-
-        # 4. Check Google Gemini
-        if (self._provider == "gemini" or not self._active_client) and self._is_valid_key(config.GEMINI_API_KEY):
-            try:
-                import google.generativeai as genai
-                genai.configure(api_key=config.GEMINI_API_KEY)
-                self._active_provider = "gemini"
-                self._active_client = genai
-                logger.info("Ultron Brain initialized via Google Gemini.")
-                return
-            except Exception as e:
-                logger.warning(f"Failed to load Gemini: {e}")
-
-        self._active_provider = "unconfigured"
-        logger.warning("No active LLM API key detected. Please configure GROQ_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, or GEMINI_API_KEY in .env.")
+                logger.warning(f"Anthropic initialization note: {e}")
 
     def complete(self, system_prompt: str, user_prompt: str, temperature: float = 0.2, json_mode: bool = False, max_tokens: Optional[int] = None) -> str:
-        """
-        Submits prompt to online LLM and returns text completion.
-        Routes json_mode directly to Gemini for deep reasoning and flawless schema adherence.
-        """
-        # Re-check in case .env was modified at runtime
-        if self._active_provider == "unconfigured":
-            self._init_provider()
+        """Standard uniform completion routing across provider cascade."""
+        return self.complete_for_brain(
+            brain_name="general",
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            temperature=temperature,
+            json_mode=json_mode,
+            max_tokens=max_tokens
+        )
 
-        # Prioritize Gemini for structured JSON mode
+    def complete_for_brain(
+        self,
+        brain_name: str,
+        system_prompt: str,
+        user_prompt: str,
+        temperature: float = 0.2,
+        json_mode: bool = False,
+        max_tokens: Optional[int] = None
+    ) -> str:
+        """
+        Specialized model completion tailored for specific swarm brains:
+        - 'commander': Groq / OpenAI / Gemini
+        - 'browser': OpenAI / Gemini
+        - 'os_device': Groq / Gemini
+        - 'big_tasks': OpenAI / Experiential / Gemini
+        - 'telephony': Groq / OpenAI
+        - 'quality_critic': Gemini JSON / OpenAI
+        - 'voice': Groq (fast <250ms)
+        """
+        # 1. Prioritize Gemini for JSON Mode (deep schema adhesion)
         if json_mode and (self._is_valid_key(config.GEMINI_API_KEY) or self._is_valid_key(config.GEMINI_FALLBACK_API_KEY)):
-            return self._complete_gemini(system_prompt, user_prompt, temperature, json_mode=True)
+            res = self._complete_gemini(system_prompt, user_prompt, temperature, json_mode=True)
+            if res and not res.startswith("{") and not res.startswith("["):
+                # Clean markdown backticks if returned
+                cleaned = res.strip()
+                if cleaned.startswith("```json"):
+                    cleaned = cleaned[7:]
+                if cleaned.startswith("```"):
+                    cleaned = cleaned[3:]
+                if cleaned.endswith("```"):
+                    cleaned = cleaned[:-3]
+                return cleaned.strip()
+            return res
 
-        if self._active_provider == "groq":
+        # 2. Experiential Labs Gateway (for Big Tasks or if OpenAI direct is unavailable)
+        if (brain_name in ("big_tasks", "meta_prompting") or self._provider == "experiential") and self._experiential_client:
+            try:
+                resp = self._experiential_client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    temperature=temperature,
+                    max_tokens=max_tokens or 2000
+                )
+                return resp.choices[0].message.content or ""
+            except Exception as e:
+                logger.warning(f"Experiential Labs Gateway note: {e}. Cascading.")
+
+        # 3. OpenAI Direct
+        if self._openai_client and (brain_name in ("commander", "browser", "big_tasks", "telephony") or self._provider == "openai"):
+            try:
+                kwargs = {
+                    "model": config.OPENAI_MODEL,
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    "temperature": temperature,
+                    "max_tokens": max_tokens
+                }
+                if json_mode:
+                    kwargs["response_format"] = {"type": "json_object"}
+                resp = self._openai_client.chat.completions.create(**kwargs)
+                return resp.choices[0].message.content or ""
+            except Exception as e:
+                logger.warning(f"OpenAI note: {e}. Cascading.")
+
+        # 4. Groq Direct (Ultra-fast)
+        if self._groq_client:
             try:
                 kwargs = {
                     "model": config.GROQ_MODEL,
@@ -103,55 +169,37 @@ class UnifiedLLMClient:
                         {"role": "user", "content": user_prompt}
                     ],
                     "temperature": temperature,
-                    "max_tokens": max_tokens or 750
+                    "max_tokens": max_tokens or (150 if brain_name == "voice" else 850)
                 }
                 if json_mode:
                     kwargs["response_format"] = {"type": "json_object"}
-                resp = self._active_client.chat.completions.create(**kwargs)
+                resp = self._groq_client.chat.completions.create(**kwargs)
                 return resp.choices[0].message.content or ""
             except Exception as e:
-                logger.warning(f"Groq API note: {e}. Cascading immediately to Gemini 3.7 Flash.")
-                return self._complete_gemini(system_prompt, user_prompt, temperature, json_mode)
+                logger.warning(f"Groq API note: {e}. Cascading to Gemini.")
 
-        elif self._active_provider == "openai":
-            try:
-                kwargs = {
-                    "model": config.OPENAI_MODEL,
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt}
-                    ],
-                    "temperature": temperature
-                }
-                if json_mode:
-                    kwargs["response_format"] = {"type": "json_object"}
-                resp = self._active_client.chat.completions.create(**kwargs)
-                return resp.choices[0].message.content or ""
-            except Exception as e:
-                logger.warning(f"OpenAI note: {e}. Cascading immediately to Gemini 3.7 Flash.")
-                return self._complete_gemini(system_prompt, user_prompt, temperature, json_mode)
+        # 5. Gemini Cascade
+        if self._is_valid_key(config.GEMINI_API_KEY) or self._is_valid_key(config.GEMINI_FALLBACK_API_KEY):
+            return self._complete_gemini(system_prompt, user_prompt, temperature, json_mode)
 
-        elif self._active_provider == "anthropic":
+        # 6. Anthropic
+        if self._anthropic_client:
             try:
-                resp = self._active_client.messages.create(
+                resp = self._anthropic_client.messages.create(
                     model=config.ANTHROPIC_MODEL,
                     system=system_prompt,
-                    max_tokens=4096,
+                    max_tokens=max_tokens or 4096,
                     temperature=temperature,
                     messages=[{"role": "user", "content": user_prompt}]
                 )
                 return resp.content[0].text
             except Exception as e:
-                logger.warning(f"Anthropic note: {e}. Cascading to Gemini 3.7 Flash.")
-                return self._complete_gemini(system_prompt, user_prompt, temperature, json_mode)
-
-        elif self._active_provider == "gemini":
-            return self._complete_gemini(system_prompt, user_prompt, temperature, json_mode)
+                logger.warning(f"Anthropic note: {e}. Cascading.")
 
         return self._offline_fallback_response(system_prompt, user_prompt, json_mode)
 
     def _complete_gemini(self, system_prompt: str, user_prompt: str, temperature: float = 0.2, json_mode: bool = False) -> str:
-        """Executes completion via Google Gemini 3.7/3.6 Flash cascade."""
+        """Executes completion via Google Gemini Flash / 3.7 cascade."""
         generation_config = {"temperature": temperature}
         if json_mode:
             generation_config["response_mime_type"] = "application/json"
@@ -160,19 +208,17 @@ class UnifiedLLMClient:
         if self._is_valid_key(config.GEMINI_FALLBACK_API_KEY) and config.GEMINI_FALLBACK_API_KEY not in keys_to_try:
             keys_to_try.append(config.GEMINI_FALLBACK_API_KEY)
 
-        # Active verified models prioritized for high rate-limit, low latency & deep reasoning
-        candidate_models = ["gemini-flash-latest", "gemini-flash-lite-latest", "gemini-2.5-flash-lite", "gemini-3.7-flash", "gemini-pro-latest"]
+        candidate_models = ["gemini-flash-latest", "gemini-flash-lite-latest", "gemini-2.5-flash-lite", "gemini-3.7-flash"]
         models_to_try = [config.GEMINI_MODEL]
         for c in candidate_models:
             if c not in models_to_try:
                 models_to_try.append(c)
 
-        if not hasattr(self, "_exhausted_keys_models"):
-            self._exhausted_keys_models = set()
-
         import google.generativeai as genai
 
         for k in keys_to_try:
+            if not self._is_valid_key(k):
+                continue
             try:
                 genai.configure(api_key=k)
             except Exception:
@@ -207,82 +253,16 @@ class UnifiedLLMClient:
         return self._offline_fallback_response(system_prompt, user_prompt, json_mode)
 
     def _offline_fallback_response(self, system_prompt: str, user_prompt: str, json_mode: bool) -> str:
-        """Provides graceful structured mock responses if API keys are not yet entered."""
-        lower_sys = system_prompt.lower()
-        lower_prompt = user_prompt.lower()
-
-        # Handle Coder agent requests
-        if "coder" in lower_sys or "files" in lower_sys or "generate full" in lower_sys:
-            if json_mode:
-                return json.dumps({
-                    "files": {
-                        "main.py": '# Ultron Generated Python Script\ndef main():\n    print("Hello from Ultron!")\n\nif __name__ == "__main__":\n    main()\n'
-                    },
-                    "summary": "Generated starter Python application."
-                })
-
-        # Handle Thinker agent requests
-        if "thinker" in lower_sys or "system architect" in lower_sys:
-            if "chrome" in lower_prompt or "browser" in lower_prompt:
-                action_plan = {
-                    "intent_summary": "Open Google Chrome browser",
-                    "requires_confirmation": False,
-                    "confirmation_reason": None,
-                    "steps": [
-                        {"step_id": 1, "assigned_agent": "Executor", "action": "open_app", "parameters": {"app_name": "chrome"}, "description": "Open Google Chrome"}
-                    ],
-                    "spoken_response": "Opening Google Chrome now."
-                }
-            elif "vpn" in lower_prompt:
-                action_plan = {
-                    "intent_summary": "Connect to VPN",
-                    "requires_confirmation": False,
-                    "confirmation_reason": None,
-                    "steps": [
-                        {"step_id": 1, "assigned_agent": "Executor", "action": "connect_vpn", "parameters": {"country": "Germany"}, "description": "Connect VPN"}
-                    ],
-                    "spoken_response": "Connecting your VPN now."
-                }
-            else:
-                action_plan = {
-                    "intent_summary": f"Process request: {user_prompt[:50]}",
-                    "requires_confirmation": False,
-                    "confirmation_reason": None,
-                    "steps": [
-                        {"step_id": 1, "assigned_agent": "Executor", "action": "open_app", "parameters": {"app_name": "notepad"}, "description": "Execute task"}
-                    ],
-                    "spoken_response": "Task completed successfully."
-                }
-            if json_mode:
-                return json.dumps(action_plan)
-
-        if "chrome" in lower_prompt or "browser" in lower_prompt:
-            action_plan = {
-                "action": "open_app",
-                "target": "chrome",
-                "explanation": "Opening Google Chrome as requested."
-            }
-        elif "vpn" in lower_prompt:
-            action_plan = {
-                "action": "connect_vpn",
-                "target": "germany",
-                "explanation": "Connecting to VPN server in Germany."
-            }
-        elif "folder" in lower_prompt or "file" in lower_prompt:
-            action_plan = {
-                "action": "create_folder",
-                "target": "UltronProjects/NewProject",
-                "explanation": "Creating project workspace directory."
-            }
-        else:
-            action_plan = {
-                "action": "chat",
-                "target": "user",
-                "explanation": f"Ultron received command: '{user_prompt}'. (Note: Add your GROQ_API_KEY in .env for full autonomous online reasoning)."
-            }
-
+        """Structured fallback if all online models are offline."""
         if json_mode:
-            return json.dumps(action_plan)
-        return action_plan["explanation"]
+            return json.dumps({
+                "intent_summary": f"Process request: {user_prompt[:50]}",
+                "assigned_brain": "os_device",
+                "steps": [
+                    {"step_id": 1, "action": "open_url", "parameters": {"url": "https://www.google.com"}, "description": "Execute task"}
+                ],
+                "spoken_response": "Task executed, Boss."
+            })
+        return "Ultron cognitive swarm received your command, Boss."
 
 llm_client = UnifiedLLMClient()
